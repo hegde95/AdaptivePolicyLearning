@@ -48,6 +48,8 @@ def get_args():
                         help='size of replay buffer (default: 10000000)')
     parser.add_argument('--cuda', action="store_true",
                         help='run on CUDA (default: False)')
+    parser.add_argument('--hyper', action="store_true",
+                        help='run with a hyper network (default: False)')                        
     args = parser.parse_args()
     return args
 
@@ -70,8 +72,10 @@ def main(args):
     agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
     #Tesnorboard
-    writer = SummaryWriter('runs/{}_SAC_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
-                                                                args.policy, "autotune" if args.automatic_entropy_tuning else ""))
+    run_name = '{}_SAC_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                                args.policy, "autotune" if args.automatic_entropy_tuning else "",
+                                                                "hyper" if args.hyper else "")
+    writer = SummaryWriter('runs/' + run_name)
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -85,6 +89,9 @@ def main(args):
         episode_steps = 0
         done = np.array([False for _ in range(N)])
         state = env.reset()
+
+        if args.hyper:
+            agent.switch_policy()
 
         while not done.any():
             if args.start_steps > total_numsteps:
@@ -124,9 +131,8 @@ def main(args):
         writer.add_scalar('reward/train', np.mean(episode_reward), i_episode)
         print("Episode: {}, total numsteps: {}, episode steps: {}, reward: {}".format(i_episode, total_numsteps, episode_steps, round(np.mean(episode_reward), 2)))
 
-        agent.switch_policy()
-
         if i_episode % 10 == 0 and args.eval is True:
+
             avg_reward = 0.
             episodes = 10
             for _  in range(episodes):
@@ -145,10 +151,35 @@ def main(args):
             avg_reward /= episodes
 
 
-            writer.add_scalar('avg_reward/test', np.mean(avg_reward), i_episode)
+            writer.add_scalar('avg_reward_prechange/test', np.mean(avg_reward), i_episode)
 
             print("----------------------------------------")
-            print("Test Episodes: {}, Avg. Reward: {}".format(episodes, round(np.mean(avg_reward), 2)))
+            print("Test Episodes: {}, Avg. Reward Pre Change: {}".format(episodes, round(np.mean(avg_reward), 2)))
+
+            if args.hyper:
+                agent.switch_policy()
+
+                avg_reward = 0.
+                episodes = 10
+                for _  in range(episodes):
+                    state = env.reset()
+                    episode_reward = 0
+                    done = np.array([False for _ in range(N)])
+                    while not done.any():
+                        action = agent.select_action(state, evaluate=True)
+
+                        next_state, reward, done, _ = env.step(action)
+                        episode_reward += reward
+
+
+                        state = next_state
+                    avg_reward += episode_reward
+                avg_reward /= episodes
+
+
+                writer.add_scalar('avg_reward_postchange/test', np.mean(avg_reward), i_episode)
+
+                print("Test Episodes: {}, Avg. Reward Post Change: {}".format(episodes, round(np.mean(avg_reward), 2)))
             print("----------------------------------------")
 
 

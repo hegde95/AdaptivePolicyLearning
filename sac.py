@@ -14,6 +14,7 @@ class SAC(object):
         self.gamma = args.gamma
         self.tau = args.tau
         self.alpha = args.alpha
+        self.hyper = args.hyper
 
         self.policy_type = args.policy
         self.target_update_interval = args.target_update_interval
@@ -35,8 +36,12 @@ class SAC(object):
                 self.alpha_optim = Adam([self.log_alpha], lr=args.lr)
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
-            self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size).to(self.device)
-            self.policy_optim = self.policy.optimizer
+            if self.hyper:
+                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size).to(self.device)
+                self.policy_optim = self.policy.optimizer
+            else:
+                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
+                self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
             # self.policy_optim = Adam([
             #     {
@@ -98,12 +103,14 @@ class SAC(object):
         self.critic_optim.step()
 
         self.policy_optim.zero_grad()
-        self.switch_counter += 1
-        if self.switch_counter % 50 == 0:
-            self.policy.change_graph(repeat_sample = False)
-            self.switch_counter = 0
-        else:
-            self.policy.change_graph(repeat_sample = True)
+
+        if self.hyper:
+            self.switch_counter += 1
+            if self.switch_counter % 50 == 0:
+                self.policy.change_graph(repeat_sample = False)
+                self.switch_counter = 0
+            else:
+                self.policy.change_graph(repeat_sample = True)
 
         pi, log_pi, _ = self.policy.sample(state_batch)
 
