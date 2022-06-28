@@ -204,9 +204,9 @@ class hyperActor(nn.Module):
     def re_query_uniform_weights(self, repeat_sample = False):
         self.current_model = []
         shape_inds = []
+        self.create_random_net(repeat_sample)
         for i in range(self.meta_batch_size):
-            self.create_random_net(repeat_sample)
-            net = MlpNetwork(**self.net_args)
+            net = MlpNetwork(**self.net_args[i])
             self.current_model.append(net)
             self.layer_1_actual = 0
             self.layer_2_actual = 0
@@ -214,24 +214,24 @@ class hyperActor(nn.Module):
             self.layer_4_actual = 0
 
             shape_ind = [[0]]
-            for i, layer in enumerate(self.net_args['fc_layers']):
-                if i == 0:
+            for j, layer in enumerate(self.net_args[i]['fc_layers']):
+                if j == 0:
                     self.layer_1_actual = layer
-                if i == 1:
+                if j == 1:
                     self.layer_2_actual = layer
-                if i == 2:
+                if j == 2:
                     self.layer_3_actual = layer
-                if i == 3:
+                if j == 3:
                     self.layer_4_actual = layer
                 shape_ind.append([layer])
                 shape_ind.append([layer])
-            shape_ind.append([self.net_args['out_dim']])
-            shape_ind.append([self.net_args['out_dim']])     
+            shape_ind.append([self.net_args[i]['out_dim']])
+            shape_ind.append([self.net_args[i]['out_dim']])     
             shape_ind = torch.Tensor(shape_ind).to('cuda')     
             shape_inds.append(shape_ind)
         shape_inds = torch.cat(shape_inds)    
-        self.current_capacity = get_capacity(self.net_args['fc_layers'], self.obs_dim, self.act_dim)
-        self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
+        # self.current_capacity = get_capacity(self.net_args[i]['fc_layers'], self.obs_dim, self.act_dim)
+        # self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
         _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = shape_inds)
 
     def change_graph(self, biased_sample = False, repeat_sample = False):
@@ -244,13 +244,15 @@ class hyperActor(nn.Module):
 
     def create_random_net(self, repeat_sample = False):
         if not repeat_sample:
-            num_layer = np.random.choice([1,2,3,4])
-            self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
-            self.net_args = {
-                'fc_layers':self.fc_layers,
-                'inp_dim':self.obs_dim,
-                'out_dim':2 * self.act_dim
-            }
+            self.net_args = []
+            for k in range(self.meta_batch_size):
+                num_layer = np.random.choice([1,2,3,4])
+                self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
+                self.net_args.append({
+                    'fc_layers':self.fc_layers,
+                    'inp_dim':self.obs_dim,
+                    'out_dim':2 * self.act_dim
+                })
 
     def get_current_layer_dist(self):
         if self.is_search:

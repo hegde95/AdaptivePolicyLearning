@@ -35,7 +35,7 @@ class SAC(object):
                 self.alpha_optim = Adam([self.log_alpha], lr=args.lr)
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
-            self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1)).to(self.device)
+            self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size).to(self.device)
             self.policy_optim = self.policy.optimizer
 
             # self.policy_optim = Adam([
@@ -58,12 +58,20 @@ class SAC(object):
         self.switch_counter = 0
 
     def select_action(self, state, evaluate=False):
-        state = torch.FloatTensor(state).to(self.device).unsqueeze(0)
-        if evaluate is False:
-            action, _, _ = self.policy.sample(state)
+        if len(state.shape) == 1:
+            state_t = torch.FloatTensor(state).to(self.device).unsqueeze(0)
         else:
-            _, _, action = self.policy.sample(state)
-        return action.detach().cpu().numpy()[0]
+            state_t = torch.FloatTensor(state).to(self.device)
+
+        if evaluate is False:
+            action, _, _ = self.policy.sample(state_t)
+        else:
+            _, _, action = self.policy.sample(state_t)
+
+        if len(state.shape) == 1:
+            return action.detach().cpu().numpy()[0]
+        else:
+            return action.detach().cpu().numpy()
 
     def update_parameters(self, memory, batch_size, updates):
         # Sample a batch from memory
