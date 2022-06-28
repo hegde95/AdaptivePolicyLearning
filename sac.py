@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from utils import soft_update, hard_update
-from model import GaussianPolicy, QNetwork, DeterministicPolicy
+from model import GaussianPolicy, QNetwork, DeterministicPolicy, ConditionalQNetwork
 
 from hyper.core import hyperActor
 import numpy as np
@@ -15,6 +15,7 @@ class SAC(object):
         self.tau = args.tau
         self.alpha = args.alpha
         self.hyper = args.hyper
+        self.condition_q = args.condition_q
 
         self.policy_type = args.policy
         self.target_update_interval = args.target_update_interval
@@ -22,10 +23,14 @@ class SAC(object):
 
         self.device = torch.device("cuda" if args.cuda else "cpu")
 
-        self.critic = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(device=self.device)
+        if self.hyper and self.condition_q:
+            self.critic = ConditionalQNetwork(num_inputs, action_space.shape[0], 4, args.hidden_size).to(device=self.device)
+            self.critic_target = ConditionalQNetwork(num_inputs, action_space.shape[0], 4, args.hidden_size).to(self.device)
+        else:
+            self.critic = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(device=self.device)
+            self.critic_target = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(self.device)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr)
 
-        self.critic_target = QNetwork(num_inputs, action_space.shape[0], args.hidden_size).to(self.device)
         hard_update(self.critic_target, self.critic)
 
         if self.policy_type == "Gaussian":
@@ -90,10 +95,18 @@ class SAC(object):
 
         with torch.no_grad():
             next_state_action, next_state_log_pi, _ = self.policy.sample(next_state_batch)
-            qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
+            if self.condition_q and self.hyper:
+                qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action, self.policy.arcs_tensor)
+            else:
+                qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
+                
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
             next_q_value = reward_batch + mask_batch * self.gamma * (min_qf_next_target)
-        qf1, qf2 = self.critic(state_batch, action_batch)  # Two Q-functions to mitigate positive bias in the policy improvement step
+
+        if self.condition_q and self.hyper:
+            qf1, qf2 = self.critic(state_batch, action_batch, self.policy.arcs_tensor)
+        else:    
+            qf1, qf2 = self.critic(state_batch, action_batch)  # Two Q-functions to mitigate positive bias in the policy improvement step
         qf1_loss = F.mse_loss(qf1, next_q_value)  # JQ = 𝔼(st,at)~D[0.5(Q1(st,at) - r(st,at) - γ(𝔼st+1~p[V(st+1)]))^2]
         qf2_loss = F.mse_loss(qf2, next_q_value)  # JQ = 𝔼(st,at)~D[0.5(Q1(st,at) - r(st,at) - γ(𝔼st+1~p[V(st+1)]))^2]
         qf_loss = qf1_loss + qf2_loss
@@ -114,7 +127,10 @@ class SAC(object):
 
         pi, log_pi, _ = self.policy.sample(state_batch)
 
-        qf1_pi, qf2_pi = self.critic(state_batch, pi)
+        if self.condition_q and self.hyper:
+            qf1_pi, qf2_pi = self.critic(state_batch, pi, self.policy.arcs_tensor)
+        else:
+            qf1_pi, qf2_pi = self.critic(state_batch, pi)
         min_qf_pi = torch.min(qf1_pi, qf2_pi)
 
         policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]

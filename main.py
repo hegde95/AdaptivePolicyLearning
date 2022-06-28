@@ -49,7 +49,9 @@ def get_args():
     parser.add_argument('--cuda', action="store_true",
                         help='run on CUDA (default: False)')
     parser.add_argument('--hyper', action="store_true",
-                        help='run with a hyper network (default: False)')                        
+                        help='run with a hyper network (default: False)')   
+    parser.add_argument('--condition_q', action="store_true",
+                        help='condition the q network with the architecture (default: False)')   
     args = parser.parse_args()
     return args
 
