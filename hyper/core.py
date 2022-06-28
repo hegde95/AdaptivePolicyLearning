@@ -280,14 +280,14 @@ class hyperActor(nn.Module):
     def forward(self, state):
         # x = torch.stack([model(state) for model in self.current_model]).mean(dim=0)
         batch_per_net = int(state.shape[0]//self.meta_batch_size)
-        x = []
-        arcs = []
-        for i in range(self.meta_batch_size):
-            x.append(self.current_model[i](state[i*batch_per_net:(i+1)*batch_per_net]))
-            arcs.append(torch.tensor(np.concatenate((self.net_args[i]['fc_layers'], np.zeros(4 - len(self.net_args[i]['fc_layers']))))).repeat(batch_per_net,1))
-        x = torch.cat(x)
-        # x2 = torch.cat([self.current_model[i](state[i*batch_per_net:(i+1)*batch_per_net]) for i in range(self.meta_batch_size)])
-        self.arcs_tensor = torch.cat(arcs).to('cuda').type(torch.float32)
+        # x = []
+        # arcs = []
+        # for i in range(self.meta_batch_size):
+        #     x.append(self.current_model[i](state[i*batch_per_net:(i+1)*batch_per_net]))
+        #     arcs.append(torch.tensor(np.concatenate((self.net_args[i]['fc_layers'], np.zeros(4 - len(self.net_args[i]['fc_layers']))))).repeat(batch_per_net,1))
+        # x = torch.cat(x)
+        x = torch.cat([self.current_model[i](state[i*batch_per_net:(i+1)*batch_per_net]) for i in range(self.meta_batch_size)])
+        # self.arcs_tensor = torch.cat(arcs).to('cuda').type(torch.float32)
 
         if len(x.shape) == 1:    
             mu = x[:x.shape[-1]//2]
