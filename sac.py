@@ -16,6 +16,7 @@ class SAC(object):
         self.alpha = args.alpha
         self.hyper = args.hyper
         self.condition_q = args.condition_q
+        self.steps_per_arc = args.steps_per_arc
 
         self.policy_type = args.policy
         self.target_update_interval = args.target_update_interval
@@ -99,7 +100,7 @@ class SAC(object):
                 qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action, self.policy.arcs_tensor)
             else:
                 qf1_next_target, qf2_next_target = self.critic_target(next_state_batch, next_state_action)
-                
+
             min_qf_next_target = torch.min(qf1_next_target, qf2_next_target) - self.alpha * next_state_log_pi
             next_q_value = reward_batch + mask_batch * self.gamma * (min_qf_next_target)
 
@@ -119,7 +120,7 @@ class SAC(object):
 
         if self.hyper:
             self.switch_counter += 1
-            if self.switch_counter % 50 == 0:
+            if self.switch_counter % self.steps_per_arc == 0:
                 self.policy.change_graph(repeat_sample = False)
                 self.switch_counter = 0
             else:

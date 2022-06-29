@@ -52,6 +52,8 @@ def get_args():
                         help='run with a hyper network (default: False)')   
     parser.add_argument('--condition_q', action="store_true",
                         help='condition the q network with the architecture (default: False)')   
+    parser.add_argument('--steps_per_arc', type=int, default=50, metavar='N',
+                        help='steps to run between architecture samples (default: 50)')
     args = parser.parse_args()
     return args
 
