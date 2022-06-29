@@ -8,9 +8,11 @@ from sac import SAC
 from torch.utils.tensorboard import SummaryWriter
 from replay_memory import ReplayMemory
 from stable_baselines3.common.vec_env import SubprocVecEnv
+import wandb
+import random
 
 def get_args():
-    parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
+    parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
     parser.add_argument('--env-name', default="HalfCheetah-v2",
                         help='Mujoco Gym environment (default: HalfCheetah-v2)')
     parser.add_argument('--policy', default="Gaussian",
@@ -54,10 +56,20 @@ def get_args():
                         help='condition the q network with the architecture (default: False)')   
     parser.add_argument('--steps_per_arc', type=int, default=50, metavar='N',
                         help='steps to run between architecture samples (default: 50)')
+    parser.add_argument('--wandb', action="store_true",
+                        help='Log to wandb. (default: False')  
+    parser.add_argument('--debug', action="store_true",
+                        help='Will run in debug. (default: False')  
+    parser.add_argument('--wandb-tag', type=str, default="",
+                        help='Use a custom tag for wandb. (default: "")')                        
     args = parser.parse_args()
     return args
 
 def main(args):
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
     # Environment
     # env = NormalizedActions(gym.make(args.env_name))
     # env = gym.make(args.env_name)
@@ -67,19 +79,34 @@ def main(args):
     env.seed(args.seed)
     env.action_space.seed(args.seed)
 
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
-
     args.cuda = True
 
     # Agent
     agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
     #Tesnorboard
-    run_name = '{}_SAC_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+    run_name = '{}_SAC_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
                                                                 args.policy, "autotune" if args.automatic_entropy_tuning else "",
-                                                                "hyper" if args.hyper else "")
+                                                                "hyper" if args.hyper else "",
+                                                                str(args.seed)
+                                                                )
     writer = SummaryWriter('runs/' + run_name)
+    if args.wandb:
+        tags = []
+        if args.hyper:
+            tags.append("hyper")
+            if args.condition_q:
+                tags.append("condition_q")
+        else:
+            tags.append("vanilla")
+        
+        if args.debug:
+            tags.append("debug")    
+
+        if args.wandb_tag:
+            tags.append(args.wandb_tag)        
+        run = wandb.init(project="AdaptivePolicyLearning", entity="khegde", name=run_name, config=args, tags = tags)
+    
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -114,6 +141,9 @@ def main(args):
                     writer.add_scalar('loss/policy', policy_loss, updates)
                     writer.add_scalar('loss/entropy_loss', ent_loss, updates)
                     writer.add_scalar('entropy_temprature/alpha', alpha, updates)
+
+                    if args.wandb:
+                        run.log({"critic_1_loss": critic_1_loss, "critic_2_loss": critic_2_loss, "policy_loss": policy_loss, "ent_loss": ent_loss, "alpha": alpha}, step=updates)
                     updates += 1
 
             next_state, reward, done, _ = env.step(action) # Step
@@ -134,6 +164,8 @@ def main(args):
 
         writer.add_scalar('reward/train', np.mean(episode_reward), i_episode)
         print("Episode: {}, total numsteps: {}, episode steps: {}, reward: {}".format(i_episode, total_numsteps, episode_steps, round(np.mean(episode_reward), 2)))
+        if args.wandb:
+            wandb.log({"Train Reward": np.mean(episode_reward), "Episode": i_episode, "steps": total_numsteps}, step=total_numsteps)
 
         if i_episode % 10 == 0 and args.eval is True:
 
@@ -159,6 +191,8 @@ def main(args):
 
             print("----------------------------------------")
             print("Test Episodes: {}, Avg. Reward Pre Change: {}".format(episodes, round(np.mean(avg_reward), 2)))
+            if args.wandb:
+                wandb.log({"Test Reward Pre Change": np.mean(avg_reward), "Episode": i_episode, "steps": total_numsteps}, step=total_numsteps)
 
             if args.hyper:
                 agent.switch_policy()
@@ -184,6 +218,8 @@ def main(args):
                 writer.add_scalar('avg_reward_postchange/test', np.mean(avg_reward), i_episode)
 
                 print("Test Episodes: {}, Avg. Reward Post Change: {}".format(episodes, round(np.mean(avg_reward), 2)))
+                if args.wandb:
+                    wandb.log({"Test Reward Post Change": np.mean(avg_reward), "Episode": i_episode, "steps": total_numsteps}, step=total_numsteps)                
             print("----------------------------------------")
 
 
