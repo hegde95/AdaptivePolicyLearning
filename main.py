@@ -38,8 +38,8 @@ def get_args():
                         help='maximum number of steps (default: 1000000)')
     parser.add_argument('--hidden_size', type=int, default=256, metavar='N',
                         help='hidden size (default: 256)')
-    parser.add_argument('--meta_batch_size', type=int, default=8, metavar='N',
-                    help='hidden size (default: 8)')    
+    parser.add_argument('--meta_batch_size', type=int, default=1, metavar='N',
+                    help='hidden size (default: 1)')    
     parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',
                         help='model updates per simulator step (default: 1)')
     parser.add_argument('--start_steps', type=int, default=10000, metavar='N',
