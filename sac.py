@@ -22,7 +22,7 @@ class SAC(object):
         self.target_update_interval = args.target_update_interval
         self.automatic_entropy_tuning = args.automatic_entropy_tuning
 
-        self.device = torch.device("cuda" if args.cuda else "cpu")
+        self.device = torch.device(f"cuda:{args.cuda_device}" if args.cuda else "cpu")
 
         if self.hyper and self.condition_q:
             self.critic = ConditionalQNetwork(num_inputs, action_space.shape[0], 4, args.hidden_size).to(device=self.device)
@@ -43,7 +43,7 @@ class SAC(object):
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             if self.hyper:
-                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size).to(self.device)
+                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size, device=self.device).to(self.device)
                 self.policy_optim = self.policy.optimizer
             else:
                 self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)

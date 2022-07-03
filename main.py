@@ -34,7 +34,7 @@ def get_args():
                         help='random seed (default: 123456)')
     parser.add_argument('--batch_size', type=int, default=256, metavar='N',
                         help='batch size (default: 256)')
-    parser.add_argument('--num_steps', type=int, default=6000001, metavar='N',
+    parser.add_argument('--num_steps', type=int, default=1000001, metavar='N',
                         help='maximum number of steps (default: 1000000)')
     parser.add_argument('--hidden_size', type=int, default=256, metavar='N',
                         help='hidden size (default: 256)')
@@ -42,7 +42,7 @@ def get_args():
                     help='hidden size (default: 8)')    
     parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',
                         help='model updates per simulator step (default: 1)')
-    parser.add_argument('--start_steps', type=int, default=2000, metavar='N',
+    parser.add_argument('--start_steps', type=int, default=10000, metavar='N',
                         help='Steps sampling random actions (default: 2000)')
     parser.add_argument('--target_update_interval', type=int, default=1, metavar='N',
                         help='Value target update per no. of updates per step (default: 1)')
@@ -62,6 +62,9 @@ def get_args():
                         help='Will run in debug. (default: False')  
     parser.add_argument('--wandb-tag', type=str, default="",
                         help='Use a custom tag for wandb. (default: "")')                        
+    parser.add_argument('--cuda_device', type=int, default=0,
+                        help="sets the cuda device to run experiments on")
+    
     args = parser.parse_args()
     return args
 
@@ -79,7 +82,7 @@ def main(args):
     env.seed(args.seed)
     env.action_space.seed(args.seed)
 
-    args.cuda = True
+    # args.cuda = True
 
     # Agent
     agent = SAC(env.observation_space.shape[0], env.action_space, args)

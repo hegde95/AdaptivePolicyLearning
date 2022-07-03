@@ -22,6 +22,7 @@ class hyperActor(nn.Module):
                 conditional = False, 
                 meta_batch_size = 1,
                 gumbel_tau = 1.0,
+                device = "cpu"
                 ):
         super().__init__()
         self.act_dim = act_dim
@@ -29,25 +30,26 @@ class hyperActor(nn.Module):
         self.is_search = search
         self.conditional = conditional
         self.meta_batch_size = meta_batch_size
+        self.device = device
 
         list_of_allowable_layers = list(allowable_layers)
         list_of_allowable_layers.append(0)
         list_of_allowable_layers.sort()
-        self.list_of_allowable_layers = torch.Tensor(list_of_allowable_layers).to('cuda')
+        self.list_of_allowable_layers = torch.Tensor(list_of_allowable_layers).to(self.device)
 
         if self.is_search:
             self.tau = gumbel_tau
             # TODO : change the length of these parameters to match list of allowable layers
-            self.base_inp_to_layer1_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers) - 1).to('cuda'), requires_grad=True)
-            self.base_inp_to_layer2_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to('cuda'), requires_grad=True)
-            self.base_inp_to_layer3_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to('cuda'), requires_grad=True)    
-            self.base_inp_to_layer4_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to('cuda'), requires_grad=True)    
+            self.base_inp_to_layer1_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers) - 1).to(self.device), requires_grad=True)
+            self.base_inp_to_layer2_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to(self.device), requires_grad=True)
+            self.base_inp_to_layer3_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to(self.device), requires_grad=True)    
+            self.base_inp_to_layer4_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to(self.device), requires_grad=True)    
 
             if self.conditional:
-                self.conditional_layer1_distribution = nn.Sequential(nn.Linear(8, 8), nn.ReLU(),nn.Linear(8, 8)).to('cuda')
-                self.conditional_layer2_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to('cuda')
-                self.conditional_layer3_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to('cuda')
-                self.conditional_layer4_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to('cuda')
+                self.conditional_layer1_distribution = nn.Sequential(nn.Linear(8, 8), nn.ReLU(),nn.Linear(8, 8)).to(self.device)
+                self.conditional_layer2_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
+                self.conditional_layer3_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
+                self.conditional_layer4_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
 
 
         config = {}
@@ -62,7 +64,7 @@ class hyperActor(nn.Module):
 
 
         self.ghn = MLP_GHN(**config,
-                    debug_level=0).to('cuda')  
+                    debug_level=0, device=self.device).to(self.device)  
 
         self.optimizer = torch.optim.Adam(self.ghn.parameters(), 1e-3, weight_decay=1e-5)
         if self.is_search:
@@ -123,8 +125,8 @@ class hyperActor(nn.Module):
         param_counts = []
         for i in range(self.meta_batch_size):
             fc_layers = []
-            shape_ind = [torch.tensor(0).to('cuda')]
-            param_count = torch.tensor(0.0).to('cuda')
+            shape_ind = [torch.tensor(0).to(self.device)]
+            param_count = torch.tensor(0.0).to(self.device)
             # layer 1
             if self.conditional:
                 self.layer_1_sample = self.conditional_layer1_distribution(self.base_inp_to_layer1_dist)
@@ -135,7 +137,7 @@ class hyperActor(nn.Module):
             fc_layers.append(self.layer_1_actual)
             shape_ind.append(self.layer_1_sample) 
             shape_ind.append(self.layer_1_sample) 
-            param_count += (torch.tensor((self.obs_dim)).to('cuda') + 1) * self.layer_1_sample
+            param_count += (torch.tensor((self.obs_dim)).to(self.device) + 1) * self.layer_1_sample
 
             # layer 2
             if self.conditional:
@@ -175,20 +177,20 @@ class hyperActor(nn.Module):
                         shape_ind.append(self.layer_4_sample)
                         shape_ind.append(self.layer_4_sample)
                         param_count += ((self.layer_3_sample + 1) * self.layer_4_sample)
-                        param_count += ((self.layer_4_sample + 1) * torch.tensor((self.act_dim * 2)).to('cuda'))
+                        param_count += ((self.layer_4_sample + 1) * torch.tensor((self.act_dim * 2)).to(self.device))
 
                 else:
                     self.layer_4_actual = 0
-                    param_count += ((self.layer_2_sample + 1) * torch.tensor((self.act_dim * 2)).to('cuda'))
+                    param_count += ((self.layer_2_sample + 1) * torch.tensor((self.act_dim * 2)).to(self.device))
 
             else:
                 self.layer_3_actual = 0
                 self.layer_4_actual = 0
-                param_count += ((self.layer_1_sample + 1) * torch.tensor((self.act_dim * 2)).to('cuda'))
+                param_count += ((self.layer_1_sample + 1) * torch.tensor((self.act_dim * 2)).to(self.device))
 
                 
-            shape_ind.append(torch.tensor((self.act_dim * 2)).to('cuda'))
-            shape_ind.append(torch.tensor((self.act_dim * 2)).to('cuda'))
+            shape_ind.append(torch.tensor((self.act_dim * 2)).to(self.device))
+            shape_ind.append(torch.tensor((self.act_dim * 2)).to(self.device))
             net = MlpNetwork(fc_layers=fc_layers, inp_dim = self.obs_dim, out_dim = 2 * self.act_dim)
             self.current_model.append(net)
             shape_ind = torch.stack(shape_ind).view(-1,1)
@@ -227,7 +229,7 @@ class hyperActor(nn.Module):
                 shape_ind.append([layer])
             shape_ind.append([self.net_args[i]['out_dim']])
             shape_ind.append([self.net_args[i]['out_dim']])     
-            shape_ind = torch.Tensor(shape_ind).to('cuda')     
+            shape_ind = torch.Tensor(shape_ind).to(self.device)     
             shape_inds.append(shape_ind)
         shape_inds = torch.cat(shape_inds)    
         # self.current_capacity = get_capacity(self.net_args[i]['fc_layers'], self.obs_dim, self.act_dim)
@@ -287,7 +289,7 @@ class hyperActor(nn.Module):
         #     arcs.append(torch.tensor(np.concatenate((self.net_args[i]['fc_layers'], np.zeros(4 - len(self.net_args[i]['fc_layers']))))).repeat(batch_per_net,1))
         # x = torch.cat(x)
         x = torch.cat([self.current_model[i](state[i*batch_per_net:(i+1)*batch_per_net]) for i in range(self.meta_batch_size)])
-        # self.arcs_tensor = torch.cat(arcs).to('cuda').type(torch.float32)
+        # self.arcs_tensor = torch.cat(arcs).to(self.device).type(torch.float32)
 
         if len(x.shape) == 1:    
             mu = x[:x.shape[-1]//2]

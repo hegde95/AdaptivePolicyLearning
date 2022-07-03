@@ -16,7 +16,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy import stats
-import d4rl
+# import d4rl
 
 
 def get_config():
