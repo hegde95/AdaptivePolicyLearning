@@ -223,8 +223,8 @@ def main(config):
     eval_envs = SubprocVecEnv(eval_env_fns)
     eval_envs.seed(config.seed)
 
-    dummy_env_name = config.env #config.run_name.split("_")[2]
-    dummy_env = gym.make(dummy_env_name)
+    # dummy_env_name = config.env #config.run_name.split("_")[2]
+    # dummy_env = gym.make(dummy_env_name)
 
     env_obs_dim = eval_envs.observation_space.shape[0]
     env_act_dim = eval_envs.action_space.shape[0]
@@ -232,94 +232,96 @@ def main(config):
 
 
     # ghn_folder = os.path.join(*["data",actual_env_id, config.run_name, "models"])
-    ghn_folder = config.path_to_ckpt
-    probs_folder = os.path.join(*["checkpoints", "probs"])
-    image_folder = os.path.join(*["checkpoints", "images"])
+    path_to_ckpt = config.path_to_ckpt
+    run_folder = os.path.join(*config.path_to_ckpt.split("/")[:-2])
+    # probs_folder = os.path.join(*["checkpoints", "probs"])
+    image_folder = os.path.join(*[run_folder, "images"])
     os.makedirs(image_folder, exist_ok=True)
     rvc_folder = os.path.join(image_folder, "rvc")
     rvp_folder = os.path.join(image_folder, "rvp")
     os.makedirs(rvc_folder, exist_ok=True)
     os.makedirs(rvp_folder, exist_ok=True)
-    model_dict_folder = os.path.join(*["checkpoints", "model_dicts"])
+    model_dict_folder = os.path.join(*[run_folder, "model_dicts"])
     os.makedirs(model_dict_folder, exist_ok=True)
   
 
-    print("\n\n")
+    # print("\n\n")
     st = time.time()
     list_of_ckpts_seen = []
 
     # check if few logs exist
-    list_of_existing_model_dicts = [os.path.join(model_dict_folder,file) for file in os.listdir(model_dict_folder)]
-    if len(list_of_existing_model_dicts) > 0:
-        print("Existing logs found for:")
-        for model_dict_file in list_of_existing_model_dicts:
-            epoch_num = model_dict_file.split("dict")[2].split(".")[0]
-            existing_ckpt_file_name = os.path.join(ghn_folder,"ghn_" + epoch_num + ".pt")
-            list_of_ckpts_seen.append(existing_ckpt_file_name)
-            print("\t " + existing_ckpt_file_name)
+    # list_of_existing_model_dicts = [os.path.join(model_dict_folder,file) for file in os.listdir(model_dict_folder)]
+    # if len(list_of_existing_model_dicts) > 0:
+    #     print("Existing logs found for:")
+    #     for model_dict_file in list_of_existing_model_dicts:
+    #         epoch_num = model_dict_file.split("dict")[2].split(".")[0]
+    #         existing_ckpt_file_name = os.path.join(ghn_folder,"ghn_" + epoch_num + ".pt")
+    #         list_of_ckpts_seen.append(existing_ckpt_file_name)
+    #         print("\t " + existing_ckpt_file_name)
 
-    while True:
+    # while True:
 
-        # if (time.time() - st) > (config.hours * 60 * 60):
-        #     break
+    # if (time.time() - st) > (config.hours * 60 * 60):
+    #     break
 
-        # list all models in the folder
-        # list_of_ckpts = [os.path.join(ghn_folder,file) for file in os.listdir(ghn_folder)]
-        list_of_ckpts = [ghn_folder]
+    # list all models in the folder
+    # list_of_ckpts = [os.path.join(ghn_folder,file) for file in os.listdir(ghn_folder)]
+    list_of_ckpts = [path_to_ckpt]
 
-        new_files = []
-        for ckp_file in list_of_ckpts:
-            if ckp_file in list_of_ckpts_seen:
-                continue
-            else:
-                new_files.append(ckp_file)
+    new_files = []
+    for ckp_file in list_of_ckpts:
+        if ckp_file in list_of_ckpts_seen:
+            continue
+        else:
+            new_files.append(ckp_file)
+    
+    if len(new_files) > 0:
+        print("New File(s) detected!!")
+        # time.sleep(1)
+
+    # sort new files
+    # new_files.sort(key = lambda x: int(x.split("/")[-1].split(".")[0].split("_")[1]))
+    # config = {}
+    # config['max_shape'] = (512, 512, 1, 1)
+    # config['num_classes'] = 4 * eval_envs.action_space.shape[0]
+    # config['num_observations'] = eval_envs.observation_space.shape[0]
+    # config['weight_norm'] = True
+    # config['ve'] = 1 > 1
+    # config['layernorm'] = True
+    # config['hid'] = 16
+    action_space = eval_envs.action_space
+    num_inputs = eval_envs.observation_space.shape[0]
+    for ckp_file in new_files:
+        print(f"Evaluating {ckp_file}")
+        # epoch_num = int(ckp_file.split("/")[-1].split(".")[0].split("_")[1])
+        epoch_num = 5000
+        # prob_dict = torch.load(os.path.join(probs_folder, f"prob_{epoch_num}.pt"))
+        # prob_dict = {f"layer{j+1}" : {layer_:prob_ for (layer_, prob_) in prob_dict[f"layer{j+1}"]} for j in range(4)}
+        actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1))
+        state_dict = torch.load(ckp_file, map_location='cpu')
+        actor.load_state_dict(state_dict['policy_state_dict'])
+        # ghn = MLP_GHN.load(ckp_file, debug_level=0, device='cpu', verbose=True, config = config)
+
+        model_dict = get_model_dict(num_models_to_eval, list_of_allowable_layers, env_obs_dim, env_act_dim, eval_envs, actor.ghn)
         
-        if len(new_files) > 0:
-            print("New File(s) detected!!")
-            # time.sleep(1)
-
-        # sort new files
-        # new_files.sort(key = lambda x: int(x.split("/")[-1].split(".")[0].split("_")[1]))
-        # config = {}
-        # config['max_shape'] = (512, 512, 1, 1)
-        # config['num_classes'] = 4 * eval_envs.action_space.shape[0]
-        # config['num_observations'] = eval_envs.observation_space.shape[0]
-        # config['weight_norm'] = True
-        # config['ve'] = 1 > 1
-        # config['layernorm'] = True
-        # config['hid'] = 16
-        action_space = eval_envs.action_space
-        num_inputs = eval_envs.observation_space.shape[0]
-        for ckp_file in new_files:
-            print(f"Evaluating {ckp_file}")
-            # epoch_num = int(ckp_file.split("/")[-1].split(".")[0].split("_")[1])
-            epoch_num = 5000
-            # prob_dict = torch.load(os.path.join(probs_folder, f"prob_{epoch_num}.pt"))
-            # prob_dict = {f"layer{j+1}" : {layer_:prob_ for (layer_, prob_) in prob_dict[f"layer{j+1}"]} for j in range(4)}
-            actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1))
-            state_dict = torch.load(ckp_file, map_location='cpu')
-            actor.load_state_dict(state_dict['policy_state_dict'])
-            # ghn = MLP_GHN.load(ckp_file, debug_level=0, device='cpu', verbose=True, config = config)
-
-            model_dict = get_model_dict(num_models_to_eval, list_of_allowable_layers, env_obs_dim, env_act_dim, eval_envs, actor.ghn)
-            
-            
-            # evaluate(eval_envs, ghn, model_dict, list_of_arcs)
-
-            # normalize reward in model_dict
-            # model_dict['norm_reward'] = model_dict.apply (lambda row: dummy_env.get_normalized_score(row['reward']), axis=1).astype(np.float64)
-
-            plot_model_dict(model_dict, actual_env_id, epoch_num, rvp_folder, rvc_folder)
-
-            # save model_dict
-            model_dict.to_csv(os.path.join(model_dict_folder, "model_dict" + str(epoch_num) +".csv"))
-
-            print(f"Logging Done for file: {ckp_file} ")
-            print(f"{time.time()-st} seconds have passed \n")
-
-            list_of_ckpts_seen.append(ckp_file)
         
-        time.sleep(1)
+        # evaluate(eval_envs, ghn, model_dict, list_of_arcs)
+
+        # normalize reward in model_dict
+        # model_dict['norm_reward'] = model_dict.apply (lambda row: dummy_env.get_normalized_score(row['reward']), axis=1).astype(np.float64)
+
+        plot_model_dict(model_dict, actual_env_id, epoch_num, rvp_folder, rvc_folder)
+
+        # save model_dict
+        model_dict.to_csv(os.path.join(model_dict_folder, "model_dict" + str(epoch_num) +".csv"))
+
+        print(f"Logging Done for file: {ckp_file} ")
+        print(f"{time.time()-st} seconds have passed \n")
+
+        list_of_ckpts_seen.append(ckp_file)
+    
+    time.sleep(1)
+    print("Done")
 
 
 if __name__ == "__main__":
