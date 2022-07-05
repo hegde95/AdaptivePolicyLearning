@@ -17,7 +17,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import gaussian_filter1d
 from scipy import stats
-import d4rl
 
 
 def get_config():
@@ -299,7 +298,7 @@ def main(config):
             # prob_dict = {f"layer{j+1}" : {layer_:prob_ for (layer_, prob_) in prob_dict[f"layer{j+1}"]} for j in range(4)}
             actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1))
             state_dict = torch.load(ckp_file, map_location='cpu')
-            actor.load_state_dict(state_dict['ghn'])
+            actor.load_state_dict(state_dict['policy_state_dict'])
             # ghn = MLP_GHN.load(ckp_file, debug_level=0, device='cpu', verbose=True, config = config)
 
             model_dict = get_model_dict(num_models_to_eval, list_of_allowable_layers, env_obs_dim, env_act_dim, eval_envs, actor.ghn)

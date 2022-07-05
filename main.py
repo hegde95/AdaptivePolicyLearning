@@ -63,8 +63,10 @@ def get_args():
     parser.add_argument('--wandb-tag', type=str, default="",
                         help='Use a custom tag for wandb. (default: "")')                        
     parser.add_argument('--cuda_device', type=int, default=0,
-                        help="sets the cuda device to run experiments on")
-    
+                    help="sets the cuda device to run experiments on")
+    parser.add_argument('--save_model', action="store_true",
+                    help="save the model after each episode")
+
     args = parser.parse_args()
     return args
 
@@ -88,11 +90,19 @@ def main(args):
     agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
     #Tesnorboard
-    run_name = '{}_SAC_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+    if args.debug:
+        run_name =  '{}_DEBUG_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
+                                                                args.policy, "autotune" if args.automatic_entropy_tuning else "",
+                                                                "hyper" if args.hyper else "",
+                                                                str(args.seed)
+                                                                )                                                               
+    else:
+        run_name = '{}_SAC_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), args.env_name,
                                                                 args.policy, "autotune" if args.automatic_entropy_tuning else "",
                                                                 "hyper" if args.hyper else "",
                                                                 str(args.seed)
                                                                 )
+
     writer = SummaryWriter('runs/' + run_name)
     if args.wandb:
         tags = []
@@ -224,6 +234,8 @@ def main(args):
                 if args.wandb:
                     wandb.log({"Test Reward Post Change": np.mean(avg_reward), "Episode": i_episode, "steps": total_numsteps}, step=total_numsteps)                
             print("----------------------------------------")
+            if args.save_model:
+                agent.save_checkpoint(run_name = run_name, suffix=total_numsteps)
 
 
     env.close()
