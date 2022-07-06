@@ -109,7 +109,7 @@ class hyperActor(nn.Module):
                     }
                     ])
         self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)
-        self.change_graph()
+        self.change_graph(biased_sample=self.is_search)
 
         self.log_std_logits = nn.Parameter(
                     torch.zeros(act_dim, requires_grad=True))
