@@ -8,6 +8,7 @@ from replay_memory import ReplayMemory
 import itertools
 import numpy as np
 import torch
+from pcgrad import PCGrad
 
 def get_args():
     parser = argparse.ArgumentParser(description='APL')
@@ -64,17 +65,20 @@ def main(args):
     args.search = True
     device_used = device(f"cuda:{args.cuda_device}" if args.cuda else "cpu")
     N = args.meta_batch_size
-    # env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
-    # env = SubprocVecEnv(env_fns)
-    env = gym.make(args.env_name)
+    env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
+    env = SubprocVecEnv(env_fns)
+    # env = gym.make(args.env_name)
     env.seed(args.seed)
     env.action_space.seed(args.seed)
 
     # Agent
     agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
+
     # Load ckpt
-    agent.load_checkpoint(args.path_to_ckpt, add_search_params = True)
+    agent.load_checkpoint(args.path_to_ckpt, add_search_params = True, device = device_used)
+
+    pc_optim = PCGrad(agent.policy.search_optimizer)
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -86,31 +90,59 @@ def main(args):
     for i_episode in itertools.count(1):
         episode_reward = 0
         episode_steps = 0
-        done = False
+        done = np.array([False for _ in range(N)])
         state = env.reset()
-        while not done:
-            state_t = torch.FloatTensor(state).to(device_used).unsqueeze(0)
+        total_q = 0
+        avg_capacity = 0
+        avg_num_params = 0
+        while not done.any():
+            state_t = torch.FloatTensor(state).to(device_used)
             
             agent.policy.change_graph(biased_sample = True)
-            action, _, _ = agent.policy.sample(state_t)
+            action_t, _, _ = agent.policy.sample(state_t)
+            action = action_t.detach().cpu().numpy()
 
-            arc_q1, arc_q2 = agent.critic(state_t, action)
-            arc_q = torch.min(arc_q1, arc_q2)
 
-            loss = -arc_q.mean()
-            loss.backward(retain_graph=True)
-            agent.policy.search_optimizer.step()
-
-            state, reward, done, _ = env.step(action.detach().cpu().numpy()[0])
+            next_state, reward, done, _ = env.step(action)
+            memory.push_many(state, action, reward, next_state, done)
             episode_reward += reward
             episode_steps += 1
             total_numsteps += 1
-            updates += 1
 
+            if total_numsteps > args.batch_size:
+                # Sample a batch from memory
+                state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
+
+                state_batch = torch.FloatTensor(state_batch).to(device_used)
+                agent.policy.change_graph(biased_sample = True)
+                action_batch, _, _ = agent.policy.sample(state_batch)
+
+                arc_q1, arc_q2 = agent.critic(state_batch, action_batch)
+                arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
+                total_q += abs(arc_q_loss).detach().cpu().numpy()
+                avg_capacity += agent.policy.current_capacites.mean()
+                avg_num_params += agent.policy.current_number_of_params.mean()
+
+                size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
+
+                if arc_q_loss > -500:
+                    size_loss *= 0
+
+                # loss = size_loss + arc_q_loss
+                # loss.backward(retain_graph=True)
+                pc_optim.pc_backward([size_loss, arc_q_loss])
+                pc_optim.step()
+                updates += 1
+
+            state = next_state
             if total_numsteps > args.num_steps:
                 break
 
-        print("Episode: {}, Reward: {}, Steps: {}".format(i_episode, episode_reward, episode_steps))
+        print("Episode: {}, Reward: {}, Steps: {}, Average Q: {}, Average Capacity: {}, Average Number of Params: {}".format(i_episode, episode_reward, episode_steps, total_q/episode_steps, avg_capacity/episode_steps, avg_num_params/episode_steps))
+        if total_numsteps > args.num_steps:
+            break
+        if total_numsteps > args.num_steps:
+            break
 
         if i_episode % 10 == 0:
             agent.save_checkpoint(run_name = args.path_to_ckpt + "_apl", suffix=total_numsteps)

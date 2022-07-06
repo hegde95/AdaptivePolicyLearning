@@ -123,6 +123,7 @@ class hyperActor(nn.Module):
         self.current_model = []
         shape_inds = []
         param_counts = []
+        capacities = []
         for i in range(self.meta_batch_size):
             fc_layers = []
             shape_ind = [torch.tensor(0).to(self.device)]
@@ -196,12 +197,13 @@ class hyperActor(nn.Module):
             shape_ind = torch.stack(shape_ind).view(-1,1)
             shape_inds.append(shape_ind)
             param_counts.append(param_count)
+            capacities.append(get_capacity(fc_layers, self.obs_dim, self.act_dim))
 
         shape_inds = torch.cat(shape_inds) 
-        self.current_capacity = get_capacity(fc_layers, self.obs_dim, self.act_dim)
-        self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
+        self.current_capacites = np.array(capacities)
         _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = shape_inds)
         self.param_counts = torch.stack(param_counts)
+        self.current_number_of_params = self.param_counts.detach().cpu().numpy()
     
     def re_query_uniform_weights(self, repeat_sample = False):
         self.current_model = []

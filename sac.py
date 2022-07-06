@@ -174,10 +174,10 @@ class SAC(object):
                     'policy_optimizer_state_dict': self.policy_optim.state_dict()}, ckpt_path)
 
     # Load model parameters
-    def load_checkpoint(self, ckpt_path, evaluate=False, add_search_params=False):
+    def load_checkpoint(self, ckpt_path, evaluate=False, add_search_params=False, device = 'cpu'):
         print('Loading models from {}'.format(ckpt_path))
         if ckpt_path is not None:
-            checkpoint = torch.load(ckpt_path)
+            checkpoint = torch.load(ckpt_path, map_location=device)
             if add_search_params:
                 # Add search parameters to the checkpoint
                 checkpoint['policy_state_dict']['base_inp_to_layer1_dist'] = self.policy.base_inp_to_layer1_dist.data
