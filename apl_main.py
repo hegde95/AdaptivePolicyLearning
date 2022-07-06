@@ -112,6 +112,9 @@ def main(args):
 
         print("Episode: {}, Reward: {}, Steps: {}".format(i_episode, episode_reward, episode_steps))
 
+        if i_episode % 10 == 0:
+            agent.save_checkpoint(run_name = args.path_to_ckpt + "_apl", suffix=total_numsteps)
+
     print("Total Steps: {}".format(total_numsteps))
 
     
