@@ -89,8 +89,9 @@ def main(args):
         done = False
         state = env.reset()
         while not done:
-            agent.policy.change_graph(biased_sample = True)
             state_t = torch.FloatTensor(state).to(device_used).unsqueeze(0)
+            
+            agent.policy.change_graph(biased_sample = True)
             action, _, _ = agent.policy.sample(state_t)
 
             arc_q1, arc_q2 = agent.critic(state_t, action)
@@ -100,8 +101,18 @@ def main(args):
             loss.backward(retain_graph=True)
             agent.policy.search_optimizer.step()
 
+            state, reward, done, _ = env.step(action.detach().cpu().numpy()[0])
+            episode_reward += reward
+            episode_steps += 1
+            total_numsteps += 1
+            updates += 1
 
-            # print(action)
+            if total_numsteps > args.num_steps:
+                break
+
+        print("Episode: {}, Reward: {}, Steps: {}".format(i_episode, episode_reward, episode_steps))
+
+    print("Total Steps: {}".format(total_numsteps))
 
     
 if __name__ == '__main__':
