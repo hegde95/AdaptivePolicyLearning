@@ -21,7 +21,7 @@ class hyperActor(nn.Module):
                 search = False, 
                 conditional = False, 
                 meta_batch_size = 1,
-                gumbel_tau = 1.0,
+                gumbel_tau = 0.1,
                 device = "cpu"
                 ):
         super().__init__()
@@ -105,7 +105,7 @@ class hyperActor(nn.Module):
                             self.base_inp_to_layer3_dist,
                             self.base_inp_to_layer4_dist,
                         ],
-                        'lr':1e-5
+                        'lr':1e-4
                     }
                     ])
         self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)

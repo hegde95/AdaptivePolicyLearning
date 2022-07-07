@@ -10,6 +10,9 @@ import numpy as np
 import torch
 # from pcgrad import PCGrad
 import random
+from collections import deque 
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def get_args():
     parser = argparse.ArgumentParser(description='APL')
@@ -78,6 +81,11 @@ def main(args):
     # Agent
     agent = SAC(env.observation_space.shape[0], env.action_space, args)
 
+    size_tracker = deque(maxlen=100)
+    capacity_tracker = deque(maxlen=100)
+
+    df = pd.DataFrame(columns=["step", "loss", "size", "capacity"])
+
 
     # Load ckpt
     agent.load_checkpoint(args.path_to_ckpt, add_search_params = True, device = device_used)
@@ -102,44 +110,48 @@ def main(args):
         while not done.any():
             state_t = torch.FloatTensor(state).to(device_used)
             pc_optim.zero_grad()
-            agent.policy.change_graph(biased_sample = True)
+            # agent.policy.change_graph(biased_sample = True)
             action_t, _, _ = agent.policy.sample(state_t)
             action = action_t.detach().cpu().numpy()
 
 
             next_state, reward, done, _ = env.step(action)
-            # memory.push_many(state, action, reward, next_state, done)
+            memory.push_many(state, action, reward, next_state, done)
             episode_reward += reward
             episode_steps += 1
             total_numsteps += 1
 
-            # if total_numsteps > args.batch_size:
+            if total_numsteps > args.batch_size:
                 # Sample a batch from memory
-                # state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
+                state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
 
-            # state_batch = torch.FloatTensor(state_batch).to(device_used)
-            # agent.policy.change_graph(biased_sample = True)
-            # action_batch, _, _ = agent.policy.sample(state_batch)
+                state_batch = torch.FloatTensor(state_batch).to(device_used)
+                pc_optim.zero_grad()
+                agent.policy.change_graph(biased_sample = True)
+                action_batch, _, _ = agent.policy.sample(state_batch)
 
-            arc_q1, arc_q2 = agent.critic(state_t, action_t)
-            arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
-            total_q += abs(arc_q_loss).detach().cpu().numpy()
-            avg_capacity += agent.policy.current_capacites.mean()
-            avg_num_params += agent.policy.current_number_of_params.mean()
+                arc_q1, arc_q2 = agent.critic(state_batch, action_batch)
+                arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
+                total_q += abs(arc_q_loss).detach().cpu().numpy()
+                avg_capacity += agent.policy.current_capacites.mean()
+                avg_num_params += agent.policy.current_number_of_params.mean()
+                size_tracker.append(agent.policy.current_number_of_params.mean())
+                capacity_tracker.append(agent.policy.current_capacites.mean())
 
-            # size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
+                # size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
 
-            # if arc_q_loss > -500:
-            #     size_loss *= 0
+                # if arc_q_loss > -500:
+                #     size_loss *= 0
 
-            loss = arc_q_loss
-            loss.backward()
-            # pc_optim.pc_backward([size_loss, arc_q_loss])
-            pc_optim.step()
-            updates += 1
-            print(loss)
+                loss = arc_q_loss
+                loss.backward()
+                # pc_optim.pc_backward([size_loss, arc_q_loss])
+                pc_optim.step()
+                updates += 1
+                # print(loss.item(), np.mean(size_tracker), np.mean(capacity_tracker))
+                df = df.append({"step": updates, "loss": loss.item(), "size": np.mean(size_tracker), "capacity": np.mean(capacity_tracker)}, ignore_index=True)
 
-            state = next_state
+                state = next_state
 
 
         print("Episode: {}, Reward: {}, Steps: {}, Average Q: {}, Average Capacity: {}, Average Number of Params: {}".format(i_episode, np.mean(episode_reward), episode_steps, total_q/episode_steps, avg_capacity/episode_steps, avg_num_params/episode_steps))
@@ -147,6 +159,11 @@ def main(args):
             break
 
         if i_episode % 10 == 0:
+            fig, axes = plt.subplots(nrows=1, ncols=3,figsize=(15,5))
+            df.plot(x = "step", y = "size", ax = axes[0], c="g")
+            df.plot(x = "step", y = "loss", ax = axes[1], c="b")
+            df.plot(x = "step", y = "capacity", ax = axes[2], c="r")
+            fig.savefig("curves.png")            
             agent.save_checkpoint(run_name = args.path_to_ckpt + "_apl", suffix=total_numsteps)
 
     print("Total Steps: {}".format(total_numsteps))
