@@ -8,7 +8,8 @@ from replay_memory import ReplayMemory
 import itertools
 import numpy as np
 import torch
-from pcgrad import PCGrad
+# from pcgrad import PCGrad
+import random
 
 def get_args():
     parser = argparse.ArgumentParser(description='APL')
@@ -68,6 +69,9 @@ def main(args):
     env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
     env = SubprocVecEnv(env_fns)
     # env = gym.make(args.env_name)
+    np.random.seed(args.seed)
+    random.seed(args.seed)
+    torch.manual_seed(args.seed)    
     env.seed(args.seed)
     env.action_space.seed(args.seed)
 
@@ -78,7 +82,7 @@ def main(args):
     # Load ckpt
     agent.load_checkpoint(args.path_to_ckpt, add_search_params = True, device = device_used)
 
-    pc_optim = PCGrad(agent.policy.search_optimizer)
+    pc_optim = agent.policy.search_optimizer
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -97,50 +101,48 @@ def main(args):
         avg_num_params = 0
         while not done.any():
             state_t = torch.FloatTensor(state).to(device_used)
-            
+            pc_optim.zero_grad()
             agent.policy.change_graph(biased_sample = True)
             action_t, _, _ = agent.policy.sample(state_t)
             action = action_t.detach().cpu().numpy()
 
 
             next_state, reward, done, _ = env.step(action)
-            memory.push_many(state, action, reward, next_state, done)
+            # memory.push_many(state, action, reward, next_state, done)
             episode_reward += reward
             episode_steps += 1
             total_numsteps += 1
 
-            if total_numsteps > args.batch_size:
+            # if total_numsteps > args.batch_size:
                 # Sample a batch from memory
-                state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
+                # state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
 
-                state_batch = torch.FloatTensor(state_batch).to(device_used)
-                agent.policy.change_graph(biased_sample = True)
-                action_batch, _, _ = agent.policy.sample(state_batch)
+            # state_batch = torch.FloatTensor(state_batch).to(device_used)
+            # agent.policy.change_graph(biased_sample = True)
+            # action_batch, _, _ = agent.policy.sample(state_batch)
 
-                arc_q1, arc_q2 = agent.critic(state_batch, action_batch)
-                arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
-                total_q += abs(arc_q_loss).detach().cpu().numpy()
-                avg_capacity += agent.policy.current_capacites.mean()
-                avg_num_params += agent.policy.current_number_of_params.mean()
+            arc_q1, arc_q2 = agent.critic(state_t, action_t)
+            arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
+            total_q += abs(arc_q_loss).detach().cpu().numpy()
+            avg_capacity += agent.policy.current_capacites.mean()
+            avg_num_params += agent.policy.current_number_of_params.mean()
 
-                size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
+            # size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
 
-                if arc_q_loss > -500:
-                    size_loss *= 0
+            # if arc_q_loss > -500:
+            #     size_loss *= 0
 
-                # loss = size_loss + arc_q_loss
-                # loss.backward(retain_graph=True)
-                pc_optim.pc_backward([size_loss, arc_q_loss])
-                pc_optim.step()
-                updates += 1
+            loss = arc_q_loss
+            loss.backward()
+            # pc_optim.pc_backward([size_loss, arc_q_loss])
+            pc_optim.step()
+            updates += 1
+            print(loss)
 
             state = next_state
-            if total_numsteps > args.num_steps:
-                break
 
-        print("Episode: {}, Reward: {}, Steps: {}, Average Q: {}, Average Capacity: {}, Average Number of Params: {}".format(i_episode, episode_reward, episode_steps, total_q/episode_steps, avg_capacity/episode_steps, avg_num_params/episode_steps))
-        if total_numsteps > args.num_steps:
-            break
+
+        print("Episode: {}, Reward: {}, Steps: {}, Average Q: {}, Average Capacity: {}, Average Number of Params: {}".format(i_episode, np.mean(episode_reward), episode_steps, total_q/episode_steps, avg_capacity/episode_steps, avg_num_params/episode_steps))
         if total_numsteps > args.num_steps:
             break
 
