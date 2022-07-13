@@ -8,7 +8,7 @@ from replay_memory import ReplayMemory
 import itertools
 import numpy as np
 import torch
-# from pcgrad import PCGrad
+from pcgrad import PCGrad
 import random
 from collections import deque 
 import pandas as pd
@@ -90,7 +90,8 @@ def main(args):
     # Load ckpt
     agent.load_checkpoint(args.path_to_ckpt, add_search_params = True, device = device_used)
 
-    pc_optim = agent.policy.search_optimizer
+    # pc_optim = agent.policy.search_optimizer
+    pc_optim = PCGrad(agent.policy.search_optimizer)
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -138,14 +139,14 @@ def main(args):
                 size_tracker.append(agent.policy.current_number_of_params.mean())
                 capacity_tracker.append(agent.policy.current_capacites.mean())
 
-                # size_loss = 0.1*torch.log(agent.policy.param_counts.mean())
+                size_loss = torch.log(agent.policy.param_counts.mean())
 
                 # if arc_q_loss > -500:
                 #     size_loss *= 0
 
                 loss = arc_q_loss
-                loss.backward()
-                # pc_optim.pc_backward([size_loss, arc_q_loss])
+                # loss.backward()
+                pc_optim.pc_backward([arc_q_loss,size_loss])
                 pc_optim.step()
                 updates += 1
                 # print(loss.item(), np.mean(size_tracker), np.mean(capacity_tracker))
@@ -163,7 +164,7 @@ def main(args):
             df.plot(x = "step", y = "size", ax = axes[0], c="g")
             df.plot(x = "step", y = "loss", ax = axes[1], c="b")
             df.plot(x = "step", y = "capacity", ax = axes[2], c="r")
-            fig.savefig("curves.png")            
+            fig.savefig("curves_proj_flipped__tau_0_1__lr_001.png")            
             agent.save_checkpoint(run_name = args.path_to_ckpt + "_apl", suffix=total_numsteps)
 
     print("Total Steps: {}".format(total_numsteps))

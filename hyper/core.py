@@ -105,7 +105,7 @@ class hyperActor(nn.Module):
                             self.base_inp_to_layer3_dist,
                             self.base_inp_to_layer4_dist,
                         ],
-                        'lr':1e-4
+                        'lr':1e-3
                     }
                     ])
         self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)
