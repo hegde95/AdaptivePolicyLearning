@@ -96,8 +96,8 @@ class PCGrad():
         # merged_grad[~shared] = torch.stack([g[~shared]
         #                                     for g in pc_grad]).sum(dim=0)
         merged_grad = torch.zeros_like(grads[0]).to(grads[0].device)
-        self.norm_grad_similarity = g_i_g_j / (g_i.norm() * g_j.norm())
-        if self.norm_grad_similarity > 0:
+        self.norm_grad_similarity = g_i_g_j / (g_i.norm() * g_j.norm() + 1e-8)
+        if self.norm_grad_similarity >= 0:
             # merged_grad = g_i_g_j * g_i / (g_i.norm()**2)
             merged_grad[shared] = g_j[shared]
             self.similar_step_ct += 1

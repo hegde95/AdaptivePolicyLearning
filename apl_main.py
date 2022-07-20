@@ -12,7 +12,10 @@ from pcgrad import PCGrad
 import random
 from collections import deque 
 import pandas as pd
+import copy
 import matplotlib.pyplot as plt
+import torch.nn.functional as F
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='APL')
@@ -83,6 +86,7 @@ def main(args):
 
     size_tracker = deque(maxlen=100)
     capacity_tracker = deque(maxlen=100)
+    q_tracker = deque(maxlen=100)
 
     df = pd.DataFrame(columns=["step", "loss", "size", "capacity"])
 
@@ -95,6 +99,7 @@ def main(args):
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
+    # memory.load_buffer("hc_sac_buffer")
 
     # Training Loop
     total_numsteps = 0
@@ -103,59 +108,86 @@ def main(args):
     for i_episode in itertools.count(1):
         episode_reward = 0
         episode_steps = 0
+        with torch.no_grad():
+            agent.policy.change_graph(biased_sample = True)
+            model_sizes = agent.policy.current_number_of_params.mean()
         done = np.array([False for _ in range(N)])
         state = env.reset()
-        total_q = 0
-        avg_capacity = 0
-        avg_num_params = 0
-        while not done.any():
+        reset_state = copy.deepcopy(state)
+        reset_state_t = torch.FloatTensor(reset_state).to(device_used)
+        reset_action_t, _, _ = agent.policy.sample(reset_state_t)
+        reset_arc_q1, reset_arc_q2 = agent.critic(reset_state_t, reset_action_t) 
+        starting_q = torch.min(reset_arc_q1, reset_arc_q2).mean()
+        layer1_mean = torch.matmul(F.softmax(agent.policy.base_inp_to_layer1_dist), agent.policy.list_of_allowable_layers[1:]).item()
+        layer2_mean = torch.matmul(F.softmax(agent.policy.base_inp_to_layer2_dist), agent.policy.list_of_allowable_layers).item()
+        layer3_mean = torch.matmul(F.softmax(agent.policy.base_inp_to_layer3_dist), agent.policy.list_of_allowable_layers).item()
+        layer4_mean = torch.matmul(F.softmax(agent.policy.base_inp_to_layer4_dist), agent.policy.list_of_allowable_layers).item()
+        while not np.any(done):
             state_t = torch.FloatTensor(state).to(device_used)
-            pc_optim.zero_grad()
-            # agent.policy.change_graph(biased_sample = True)
             action_t, _, _ = agent.policy.sample(state_t)
             action = action_t.detach().cpu().numpy()
-
-
             next_state, reward, done, _ = env.step(action)
             memory.push_many(state, action, reward, next_state, done)
             episode_reward += reward
             episode_steps += 1
-            total_numsteps += 1
+            state = next_state
 
-            if total_numsteps > args.batch_size:
-                # Sample a batch from memory
-                state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
-
-                state_batch = torch.FloatTensor(state_batch).to(device_used)
-                pc_optim.zero_grad()
-                agent.policy.change_graph(biased_sample = True)
-                action_batch, _, _ = agent.policy.sample(state_batch)
-
-                arc_q1, arc_q2 = agent.critic(state_batch, action_batch)
-                arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
-                total_q += abs(arc_q_loss).detach().cpu().numpy()
-                avg_capacity += agent.policy.current_capacites.mean()
-                avg_num_params += agent.policy.current_number_of_params.mean()
-                size_tracker.append(agent.policy.current_number_of_params.mean())
-                capacity_tracker.append(agent.policy.current_capacites.mean())
-
-                size_loss = torch.log(agent.policy.param_counts.mean())
-
-                # if arc_q_loss > -500:
-                #     size_loss *= 0
-
-                loss = arc_q_loss
-                # loss.backward()
-                pc_optim.pc_backward([arc_q_loss,size_loss])
-                pc_optim.step()
-                updates += 1
-                # print(loss.item(), np.mean(size_tracker), np.mean(capacity_tracker))
-                df = df.append({"step": updates, "loss": loss.item(), "size": np.mean(size_tracker), "capacity": np.mean(capacity_tracker)}, ignore_index=True)
-
-                state = next_state
+        print(f"\n Episode {i_episode}, Reward: {np.mean(episode_reward)}, model_size: {np.mean(model_sizes)}, starting_q: {starting_q}")
+        print(f" Layer 1: {layer1_mean}, Layer 2: {layer2_mean}, Layer 3: {layer3_mean}, Layer 4: {layer4_mean}")
+        # total_q = 0
+        # avg_capacity = 0
+        # avg_num_params = 0
+        for j in range(1000):
+            # state_t = torch.FloatTensor(state).to(device_used)
+            # pc_optim.zero_grad()
+            # # agent.policy.change_graph(biased_sample = True)
+            # action_t, _, _ = agent.policy.sample(state_t)
+            # action = action_t.detach().cpu().numpy()
 
 
-        print("Episode: {}, Reward: {}, Steps: {}, Average Q: {}, Average Capacity: {}, Average Number of Params: {}".format(i_episode, np.mean(episode_reward), episode_steps, total_q/episode_steps, avg_capacity/episode_steps, avg_num_params/episode_steps))
+            # next_state, reward, done, _ = env.step(action)
+            # memory.push_many(state, action, reward, next_state, done)
+            # episode_reward += reward
+            # episode_steps += 1
+            # total_numsteps += 1
+
+            # if total_numsteps > args.batch_size:
+            # Sample a batch from memory
+            state_batch, _, _, _, _ = memory.sample(batch_size=args.batch_size)
+
+            state_batch = torch.FloatTensor(state_batch).to(device_used)
+            pc_optim.zero_grad()
+            agent.policy.change_graph(biased_sample = True)
+            action_batch, _, _ = agent.policy.sample(state_batch)
+
+            arc_q1, arc_q2 = agent.critic(state_batch, action_batch)
+            arc_q_loss = -torch.min(arc_q1, arc_q2).mean()
+            # total_q += abs(arc_q_loss).detach().cpu().numpy()
+            # avg_capacity += agent.policy.current_capacites.mean()
+            # avg_num_params += agent.policy.current_number_of_params.mean()
+
+            size_loss = torch.log(agent.policy.param_counts.mean())
+
+            # if arc_q_loss > -500:
+            #     size_loss *= 0
+
+            loss = arc_q_loss
+            # loss.backward()
+            # pc_optim.pc_backward([size_loss * 0, arc_q_loss])
+            pc_optim.pc_backward([arc_q_loss * 0,size_loss])
+            pc_optim.step()
+            updates += 1
+            # print(loss.item(), np.mean(size_tracker), np.mean(capacity_tracker))
+            df = df.append({"step": updates, "loss": loss.item(), "size": np.mean(size_tracker), "capacity": np.mean(capacity_tracker)}, ignore_index=True)
+
+            size_tracker.append(agent.policy.current_number_of_params.mean())
+            capacity_tracker.append(agent.policy.current_capacites.mean())
+            q_tracker.append(abs(arc_q_loss).detach().cpu().numpy())
+            # state = next_state
+
+
+        print("Average Q: {}, Average Capacity: {}, Average Number of Params: {}"\
+            .format(np.mean(q_tracker), np.mean(capacity_tracker), np.mean(size_tracker)))
         if total_numsteps > args.num_steps:
             break
 
@@ -164,7 +196,7 @@ def main(args):
             df.plot(x = "step", y = "size", ax = axes[0], c="g")
             df.plot(x = "step", y = "loss", ax = axes[1], c="b")
             df.plot(x = "step", y = "capacity", ax = axes[2], c="r")
-            fig.savefig("curves_proj_flipped__tau_0_1__lr_001.png")            
+            fig.savefig("figs/new2.png")            
             agent.save_checkpoint(run_name = args.path_to_ckpt + "_apl", suffix=total_numsteps)
 
     print("Total Steps: {}".format(total_numsteps))
