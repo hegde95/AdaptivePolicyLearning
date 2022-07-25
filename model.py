@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions import Normal
+import numpy as np
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -150,6 +151,48 @@ class GaussianPolicy(nn.Module):
         self.action_scale = self.action_scale.to(device)
         self.action_bias = self.action_bias.to(device)
         return super(GaussianPolicy, self).to(device)
+
+
+class EnsembleGaussianPolicy(nn.Module):
+    def __init__(self, num_inputs, num_actions, hidden_dim, action_space=None, ensemble_size = 24, meta_size = 2):
+        super(EnsembleGaussianPolicy, self).__init__()
+        self.ensemble_size = ensemble_size
+        self.meta_size = meta_size
+        self.hidden_dim = hidden_dim *2
+        self.policies = nn.ModuleList([GaussianPolicy(num_inputs, num_actions, int((self.hidden_dim * (i+1))/(ensemble_size//2)), action_space) for i in range(ensemble_size//2)])
+        self.policies.extend(nn.ModuleList([GaussianPolicy(num_inputs, num_actions, int((self.hidden_dim * (i+1))/(ensemble_size//2)), action_space, is_small=True) for i in range(ensemble_size//2)]))
+
+    def change_graph(self, repeat_sample = False):
+        if not repeat_sample:
+            self.current_models = nn.ModuleList(np.random.choice(self.policies, self.meta_size))
+
+
+    def forward(self, state):
+        means = []
+        log_stds = []
+        for i, policy in enumerate(self.current_models):
+            mean, log_std = policy.forward(state[i])
+            means.append(mean)
+            log_stds.append(log_std)
+        return torch.stack(means, 1), torch.stack(log_stds, 1)
+
+    def sample(self, state):
+        batch_per_net = int(state.shape[0]//self.meta_size)
+        action, log_prob, mean = [], [], []
+        for i, policy in enumerate(self.current_models):
+            action_, log_prob_, mean_ = policy.sample(state[i*batch_per_net:(i+1)*batch_per_net])
+            action.append(action_)
+            log_prob.append(log_prob_)
+            mean.append(mean_)
+        return torch.vstack(action), torch.vstack(log_prob), torch.vstack(mean)
+
+    def to(self, device):
+        for policy in self.policies:
+            policy.to(device)
+        return super(EnsembleGaussianPolicy, self).to(device)
+        
+
+    
 
 
 class DeterministicPolicy(nn.Module):

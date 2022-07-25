@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 from torch.optim import Adam
 from utils import soft_update, hard_update
-from model import GaussianPolicy, QNetwork, DeterministicPolicy, ConditionalQNetwork
+from model import GaussianPolicy, QNetwork, DeterministicPolicy, EnsembleGaussianPolicy, ConditionalQNetwork
 
 from hyper.core import hyperActor
 import numpy as np
@@ -17,6 +17,7 @@ class SAC(object):
         self.hyper = args.hyper
         self.condition_q = args.condition_q
         self.steps_per_arc = args.steps_per_arc
+        self.parallel = args.parallel
 
         self.policy_type = args.policy
         self.target_update_interval = args.target_update_interval
@@ -45,6 +46,9 @@ class SAC(object):
             if self.hyper:
                 self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = args.meta_batch_size, device=self.device).to(self.device)
                 self.policy_optim = self.policy.optimizer
+            elif self.parallel:
+                self.policy =  EnsembleGaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, meta_size=args.meta_batch_size).to(self.device)
+                self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
             else:
                 self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
@@ -118,7 +122,7 @@ class SAC(object):
 
         self.policy_optim.zero_grad()
 
-        if self.hyper:
+        if self.hyper or self.parallel:
             self.switch_counter += 1
             if self.switch_counter % self.steps_per_arc == 0:
                 self.policy.change_graph(repeat_sample = False)

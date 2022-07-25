@@ -51,7 +51,9 @@ def get_args():
     parser.add_argument('--cuda', action="store_true",
                         help='run on CUDA (default: False)')
     parser.add_argument('--hyper', action="store_true",
-                        help='run with a hyper network (default: False)')   
+                        help='run with a hyper network (default: False)') 
+    parser.add_argument('--parallel', action="store_true",
+                        help='run with an ensemble of networks (default: False)')
     parser.add_argument('--condition_q', action="store_true",
                         help='condition the q network with the architecture (default: False)')   
     parser.add_argument('--steps_per_arc', type=int, default=50, metavar='N',
@@ -110,6 +112,8 @@ def main(args):
             tags.append("hyper")
             if args.condition_q:
                 tags.append("condition_q")
+        elif args.parallel:
+            tags.append("parallel")
         else:
             tags.append("vanilla")
         
@@ -134,7 +138,7 @@ def main(args):
         done = np.array([False for _ in range(N)])
         state = env.reset()
 
-        if args.hyper:
+        if args.hyper or args.parallel:
             agent.switch_policy()
 
         while not done.any():
@@ -207,7 +211,7 @@ def main(args):
             if args.wandb:
                 wandb.log({"Test Reward Pre Change": np.mean(avg_reward), "Episode": i_episode, "steps": total_numsteps}, step=total_numsteps)
 
-            if args.hyper:
+            if args.hyper or args.parallel:
                 agent.switch_policy()
 
                 avg_reward = 0.
