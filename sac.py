@@ -43,7 +43,7 @@ class SAC(object):
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             if self.hyper:
-                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size, device=self.device).to(self.device)
+                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = args.meta_batch_size, device=self.device).to(self.device)
                 self.policy_optim = self.policy.optimizer
             else:
                 self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)

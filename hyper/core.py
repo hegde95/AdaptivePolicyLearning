@@ -10,6 +10,7 @@ import numpy as np
 from itertools import product as cartesian_product
 from hyper.plotter import get_capacity
 import random
+from itertools import product
 
 class hyperActor(nn.Module):
 
@@ -32,7 +33,11 @@ class hyperActor(nn.Module):
         self.meta_batch_size = meta_batch_size
         self.device = device
 
+
         list_of_allowable_layers = list(allowable_layers)
+        self.list_of_arcs = []
+        for k in range(1,5):
+            self.list_of_arcs.extend(list(product(list_of_allowable_layers, repeat = k)))
         list_of_allowable_layers.append(0)
         list_of_allowable_layers.sort()
         self.list_of_allowable_layers = torch.Tensor(list_of_allowable_layers).to(self.device)
@@ -248,8 +253,9 @@ class hyperActor(nn.Module):
         if not repeat_sample:
             self.net_args = []
             for k in range(self.meta_batch_size):
-                num_layer = np.random.choice([1,2,3,4])
-                self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
+                # num_layer = np.random.choice([1,2,3,4])
+                # self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
+                self.fc_layers = list(np.random.choice(self.list_of_arcs))
                 self.net_args.append({
                     'fc_layers':self.fc_layers,
                     'inp_dim':self.obs_dim,
