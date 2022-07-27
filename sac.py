@@ -48,7 +48,8 @@ class SAC(object):
                 self.policy_optim = self.policy.optimizer
             elif self.parallel:
                 self.policy =  EnsembleGaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, meta_size=args.meta_batch_size).to(self.device)
-                self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
+                # self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
+                self.policy_optim = self.policy.current_optimizers
             else:
                 self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
@@ -71,6 +72,8 @@ class SAC(object):
     def switch_policy(self):
         self.policy.change_graph()
         self.switch_counter = 0
+        if self.parallel:
+            self.policy_optim = self.policy.current_optimizers
 
     def select_action(self, state, evaluate=False):
         if len(state.shape) == 1:
@@ -120,13 +123,19 @@ class SAC(object):
         qf_loss.backward()
         self.critic_optim.step()
 
-        self.policy_optim.zero_grad()
+        if self.parallel:
+            for optim in self.policy_optim:
+                optim.zero_grad()
+        else:
+            self.policy_optim.zero_grad()
 
         if self.hyper or self.parallel:
             self.switch_counter += 1
             if self.switch_counter % self.steps_per_arc == 0:
                 self.policy.change_graph(repeat_sample = False)
                 self.switch_counter = 0
+                if self.parallel:
+                    self.policy_optim = self.policy.current_optimizers
             else:
                 self.policy.change_graph(repeat_sample = True)
 
@@ -141,7 +150,11 @@ class SAC(object):
         policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
 
         policy_loss.backward(retain_graph=True)
-        self.policy_optim.step()
+        if self.parallel:
+            for optim in self.policy_optim:
+                optim.step()
+        else:
+            self.policy_optim.step()
 
         if self.automatic_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()

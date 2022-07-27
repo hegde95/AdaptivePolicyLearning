@@ -4,6 +4,9 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 import numpy as np
 from itertools import product
+from torch.optim import Adam
+import random
+import copy
 
 LOG_SIG_MAX = 2
 LOG_SIG_MIN = -20
@@ -210,11 +213,21 @@ class EnsembleGaussianPolicy(nn.Module):
         self.list_of_arcs = []
         for k in range(1,5):
             self.list_of_arcs.extend(list(product([4,8,16,32,64,128,256,512], repeat = k)))
-        self.policies = nn.ModuleList([LayeredGaussianPolicy(num_inputs, num_actions, arch, action_space) for arch in self.list_of_arcs])
+
+        self.policies = {i:LayeredGaussianPolicy(num_inputs, num_actions, arch, action_space) for i,arch in enumerate(self.list_of_arcs)}
+
+        self.optimizers = {key:Adam(self.policies[key].parameters(), lr=0.0003) for key in self.policies.keys()}
+
+        self.indices = list(self.policies.keys())
+        self.change_graph(repeat_sample=False)
 
     def change_graph(self, repeat_sample = False):
         if not repeat_sample:
-            self.current_models = nn.ModuleList(np.random.choice(self.policies, self.meta_size))
+            np.random.shuffle(self.indices)
+            self.random_indices = self.indices[:self.meta_size]
+
+            self.current_models = [self.policies[i] for i in self.random_indices]
+            self.current_optimizers = [self.optimizers[i] for i in self.random_indices]
 
 
     def forward(self, state):
@@ -237,8 +250,8 @@ class EnsembleGaussianPolicy(nn.Module):
         return torch.vstack(action), torch.vstack(log_prob), torch.vstack(mean)
 
     def to(self, device):
-        for policy in self.policies:
-            policy.to(device)
+        for policy_keys in self.policies:
+            self.policies[policy_keys].to(device)
         return super(EnsembleGaussianPolicy, self).to(device)
         
 
