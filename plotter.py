@@ -304,7 +304,7 @@ def main(config):
             print(f"Evaluating {ckp_file}")
             epoch_num = int(ckp_file.split("/")[-1].split(".")[0].split("_")[2])
 
-            actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1))
+            actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]))
             state_dict = torch.load(ckp_file, map_location='cpu')
             actor.load_state_dict(state_dict['policy_state_dict'])
 
