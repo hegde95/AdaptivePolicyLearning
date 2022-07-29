@@ -1,23 +1,27 @@
 import warnings
+
 warnings.filterwarnings("ignore")
 import os
+
 os.environ['D4RL_SUPPRESS_IMPORT_ERROR'] = '1'
 
 import argparse
-from stable_baselines3.common.vec_env import SubprocVecEnv
-import gym
-import numpy as np
-import torch
-# from hyper.loader import MLPNets1M
-from hyper.ghn_modules import MLP_GHN, MlpNetwork
-from hyper.core import hyperActor
 import time
-import tqdm
-import pandas as pd
-import matplotlib.pyplot as plt
-from scipy.ndimage.filters import gaussian_filter1d
-from scipy import stats
 from itertools import product
+
+import gym
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+import tqdm
+from scipy import stats
+from scipy.ndimage.filters import gaussian_filter1d
+from stable_baselines3.common.vec_env import SubprocVecEnv
+
+from hyper.core import hyperActor
+from hyper.ghn_modules import MLP_GHN, MlpNetwork
+
 
 def get_config():
     parser = argparse.ArgumentParser(description='RL')
@@ -34,6 +38,11 @@ def get_config():
 
     parser.add_argument('--eval_every', type=int, default=1,
                         help='run eval every n epochs')
+
+    parser.add_argument('--cuda', action="store_true",
+                        help='run on CUDA (default: False)')                                            
+    parser.add_argument('--cuda_device', type=int, default=0,
+                    help="sets the cuda device to run experiments on")
     args = parser.parse_args()
     return args
 
@@ -51,12 +60,12 @@ def get_capacity (net, inp, out):
     return C
 
 
-def evaluate_for_single_policy(env, model):
+def evaluate_for_single_policy(env, model, device = 'cpu'):
     reward_batch = []
     state = env.reset()
     rewards = 0
     while True:
-        state = torch.from_numpy(state).float().to('cpu')
+        state = torch.from_numpy(state).float().to(device)
         action = model(state)
         action = action[:,:action.shape[-1]//2]
         action = action.detach().cpu().numpy()
@@ -176,11 +185,8 @@ def get_list_of_arcs(num_models_to_eval, list_of_allowable_layers, random_sequen
             arcs.extend(list(product(list_of_allowable_layers, repeat = k)))
     return arcs
 
-def get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, env, ghn):
-    ghn = ghn.to('cpu')
-    ghn.default_edges = ghn.default_edges.to('cpu')
-    ghn.default_node_feat = ghn.default_node_feat.to('cpu')
-    
+def get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, env, ghn, device = 'cpu'):
+
     inp_dim = env_obs_dim
     out_dim = 2 * env_act_dim
     net_args = {
@@ -198,9 +204,9 @@ def get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, env, ghn):
             shape_ind.append([layer])
         shape_ind.append([out_dim])
         shape_ind.append([out_dim])    
-        shape_ind = torch.Tensor(shape_ind).to('cpu')          
+        shape_ind = torch.Tensor(shape_ind).to(device)          
         ghn(model, shape_ind = shape_ind)  
-        reward_per_policy = evaluate_for_single_policy(env, model)
+        reward_per_policy = evaluate_for_single_policy(env, model, device)
         params = sum(p.numel() for p in model.parameters())
         cap = get_capacity(net_args['fc_layers'], inp_dim, out_dim)
 
@@ -226,6 +232,8 @@ def main(config):
     largest_model = [list_of_allowable_layers[-1]]*4
     smallest_model = [list_of_allowable_layers[0]]
     baseline_model = [256,256]
+
+    device = torch.device(f"cuda:{config.cuda_device}" if config.cuda else "cpu")
 
     eval_env_fns = [lambda: gym.make(actual_env_id) for _ in range(5)]
     eval_envs = SubprocVecEnv(eval_env_fns)
@@ -304,11 +312,12 @@ def main(config):
             print(f"Evaluating {ckp_file}")
             epoch_num = int(ckp_file.split("/")[-1].split(".")[0].split("_")[2])
 
-            actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]))
-            state_dict = torch.load(ckp_file, map_location='cpu')
+            actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), device=device)
+            state_dict = torch.load(ckp_file, map_location=device)
             actor.load_state_dict(state_dict['policy_state_dict'])
 
-            model_dict = get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, eval_envs, actor.ghn)
+            np.random.shuffle(list_of_arcs)
+            model_dict = get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, eval_envs, actor.ghn, device)
             
             reward_largest_model = model_dict[model_dict.architecture == str(largest_model)].reward.item()
             reward_smallest_model = model_dict[model_dict.architecture == str(smallest_model)].reward.item()
