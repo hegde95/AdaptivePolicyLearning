@@ -40,15 +40,15 @@ def main(config):
         2640000,
         2960000,
         3280000,
-        3600000,
-        3920000,
-        4240000,
-        4560000,
-        4880000,
-        5200000,
-        5520000,
-        5840000,
-        6160000,
+        # 3600000,
+        # 3920000,
+        # 4240000,
+        # 4560000,
+        # 4880000,
+        # 5200000,
+        # 5520000,
+        # 5840000,
+        # 6160000,
         # 6480000,
         # 6800000,
         # 7120000,
@@ -79,7 +79,7 @@ def main(config):
                 smallest_param = min(high_performing_archs.params)
                 row_99_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_99_percent = row_99_percent[row_99_percent.capacity == row_99_percent.capacity.max()]                
-
+                row_99_percent = row_99_percent[row_99_percent.reward == row_99_percent.reward.max()]
 
 
                 # find all rows with 90% reward of the max_row
@@ -87,54 +87,63 @@ def main(config):
                 smallest_param = min(high_performing_archs.params)
                 row_90_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_90_percent = row_90_percent[row_90_percent.capacity == row_90_percent.capacity.max()]
+                row_90_percent = row_90_percent[row_90_percent.reward == row_90_percent.reward.max()]
 
                 # find all rows with 80% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.8*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_80_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_80_percent = row_80_percent[row_80_percent.capacity == row_80_percent.capacity.max()]
+                row_80_percent = row_80_percent[row_80_percent.reward == row_80_percent.reward.max()]
 
                 # find all rows with 70% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.7*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_70_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_70_percent = row_70_percent[row_70_percent.capacity == row_70_percent.capacity.max()]
+                row_70_percent = row_70_percent[row_70_percent.reward == row_70_percent.reward.max()]
 
                 # find all rows with 60% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.6*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_60_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_60_percent = row_60_percent[row_60_percent.capacity == row_60_percent.capacity.max()]
+                row_60_percent = row_60_percent[row_60_percent.reward == row_60_percent.reward.max()]
 
                 # find all rows with 50% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.5*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_50_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_50_percent = row_50_percent[row_50_percent.capacity == row_50_percent.capacity.max()]
+                row_50_percent = row_50_percent[row_50_percent.reward == row_50_percent.reward.max()]
 
                 # find all rows with 40% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.4*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_40_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_40_percent = row_40_percent[row_40_percent.capacity == row_40_percent.capacity.max()]
+                row_40_percent = row_40_percent[row_40_percent.reward == row_40_percent.reward.max()]
 
                 # find all rows with 30% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.3*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_30_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_30_percent = row_30_percent[row_30_percent.capacity == row_30_percent.capacity.max()]
+                row_30_percent = row_30_percent[row_30_percent.reward == row_30_percent.reward.max()]
 
                 # find all rows with 20% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.2*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_20_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_20_percent = row_20_percent[row_20_percent.capacity == row_20_percent.capacity.max()]
+                row_20_percent = row_20_percent[row_20_percent.reward == row_20_percent.reward.max()]
 
                 # find all rows with 10% reward of the max_row
                 high_performing_archs = df[df.reward >= 0.1*df.reward.max()]
                 smallest_param = min(high_performing_archs.params)
                 row_10_percent = high_performing_archs[high_performing_archs.params == smallest_param]
                 row_10_percent = row_10_percent[row_10_percent.capacity == row_10_percent.capacity.max()]
+                row_10_percent = row_10_percent[row_10_percent.reward == row_10_percent.reward.max()]
 
                 reward_results_dict[epoch][seed] = {
                     "row_max":max_row.reward.item(),
@@ -268,18 +277,18 @@ def main(config):
     axs[1].plot(list_of_epochs, [average_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], label="20%")
     # axs[1].plot(list_of_epochs, [average_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], label="10%")
 
-    # fill in the area between the lines with the std
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_max"] - std_params_dict[epoch]["row_max"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_max"] + std_params_dict[epoch]["row_max"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_99_percent"] - std_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_99_percent"] + std_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_90_percent"] - std_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_90_percent"] + std_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_80_percent"] - std_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_80_percent"] + std_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], alpha=0.2)
-    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_70_percent"] - std_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_70_percent"] + std_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_60_percent"] - std_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_60_percent"] + std_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], alpha=0.2)
-    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_50_percent"] - std_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_50_percent"] + std_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_40_percent"] - std_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_40_percent"] + std_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], alpha=0.2)
-    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_30_percent"] - std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_30_percent"] + std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], alpha=0.2)
-    axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_20_percent"] - std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_20_percent"] + std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], alpha=0.2)
-    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_10_percent"] - std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_10_percent"] + std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # # fill in the area between the lines with the std
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_max"] - std_params_dict[epoch]["row_max"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_max"] + std_params_dict[epoch]["row_max"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_99_percent"] - std_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_99_percent"] + std_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_90_percent"] - std_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_90_percent"] + std_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_80_percent"] - std_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_80_percent"] + std_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_70_percent"] - std_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_70_percent"] + std_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_60_percent"] - std_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_60_percent"] + std_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_50_percent"] - std_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_50_percent"] + std_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_40_percent"] - std_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_40_percent"] + std_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_30_percent"] - std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_30_percent"] + std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_20_percent"] - std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_20_percent"] + std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_10_percent"] - std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_10_percent"] + std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], alpha=0.2)
 
 
     # make y axis logarithmic
