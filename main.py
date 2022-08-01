@@ -30,6 +30,19 @@ def evaluate(N, eval_env, agent):
     avg_reward /= episodes
     return avg_reward,episodes
 
+def validate_run(args):
+    # check if the run exists
+    if not os.path.exists(os.path.join(args.base_dir, args.load_run)):
+        raise ValueError("Run {} does not exist".format(args.load_run))
+        
+        # check if the run has a args.json file
+    if not os.path.exists(os.path.join(args.base_dir, args.load_run, "args.json")):
+        raise ValueError("Run {} does not have an args.json file".format(args.load_run))
+
+        # check if the run has a tmp_stats.json file
+    if not os.path.exists(os.path.join(args.base_dir, args.load_run, "tmp_stats.json")):
+        raise ValueError("Run {} does not have a tmp_stats.json file".format(args.load_run))
+
 
 def get_args():
     parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
@@ -108,16 +121,7 @@ def main(args):
     # if load run is specified, load the run
     if args.load_run:
         # check if the run exists
-        if not os.path.exists(os.path.join(args.base_dir, args.load_run)):
-            raise ValueError("Run {} does not exist".format(args.load_run))
-        
-        # check if the run has a args.json file
-        if not os.path.exists(os.path.join(args.base_dir, args.load_run, "args.json")):
-            raise ValueError("Run {} does not have an args.json file".format(args.load_run))
-
-        # check if the run has a tmp_stats.json file
-        if not os.path.exists(os.path.join(args.base_dir, args.load_run, "tmp_stats.json")):
-            raise ValueError("Run {} does not have a tmp_stats.json file".format(args.load_run))
+        validate_run(args)
 
         # load the args
         with open(os.path.join(args.base_dir, args.load_run, "args.json"), "r") as f:
@@ -311,10 +315,10 @@ def main(args):
             json.dump({"updates": updates, "episode": i_episode, "total_numsteps": total_numsteps}, f)
         
         # save latest model
-        agent.save_checkpoint(run_name = run_name, suffix="latest", base_dir=args.base_dir, sub_folder="latest_model")
+        agent.save_checkpoint(run_name = run_name, suffix="latest", base_dir=args.base_dir, sub_folder="latest_model", verbose=False)
 
         # save memory
-        memory.save_buffer(save_path = os.path.join(args.base_dir, run_name, "memory.pkl"), env_name = args.env_name)
+        memory.save_buffer(save_path = os.path.join(args.base_dir, run_name, "memory.pkl"), env_name = args.env_name, verbose=False)
 
         if total_numsteps > args.num_steps:
             break
@@ -336,11 +340,9 @@ def main(args):
             if args.save_model:
                 agent.save_checkpoint(run_name = run_name, suffix=total_numsteps, base_dir=args.base_dir)
 
-
     env.close()
     if args.eval:
         eval_env.close()
-
 
 
 if __name__ == "__main__":
