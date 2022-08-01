@@ -54,8 +54,8 @@ def get_args():
                         help='random seed (default: 123456)')
     parser.add_argument('--eval', type=bool, default=True,
                         help='Evaluates a policy a policy every 10 episode (default: True)')
-    parser.add_argument('--num_steps', type=int, default=1000001, metavar='N',
-                        help='maximum number of steps (default: 1000000)')
+    parser.add_argument('--num_steps', type=int, default=3000001, metavar='N',
+                        help='maximum number of steps (default: 3000000)')
     parser.add_argument('--cuda', action="store_true",
                         help='run on CUDA (default: False)')
     parser.add_argument('--cuda_device', type=int, default=0,
@@ -89,10 +89,10 @@ def get_args():
                         help='size of replay buffer (default: 10000000)')
 
     # hyper args
-    parser.add_argument('--meta_batch_size', type=int, default=1, metavar='N',
-                    help='hidden size (default: 1)')    
-    parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',
-                        help='model updates per simulator step (default: 1)')
+    parser.add_argument('--meta_batch_size', type=int, default=8, metavar='N',
+                    help='hidden size (default: 8)')    
+    parser.add_argument('--updates_per_step', type=int, default=8, metavar='N',
+                        help='model updates per simulator step (default: 8)')
     parser.add_argument('--hyper', action="store_true",
                         help='run with a hyper network (default: False)') 
     parser.add_argument('--parallel', action="store_true",
@@ -173,7 +173,7 @@ def main(args):
     # create base directory if it doesn't exist
     os.makedirs(args.base_dir, exist_ok=True)
     os.makedirs(os.path.join(args.base_dir, run_name), exist_ok=True)   
-                                                                 
+
     # tensorboard
     writer = SummaryWriter(args.base_dir + '/' + run_name)
     
