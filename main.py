@@ -159,11 +159,7 @@ def main(args):
     torch.manual_seed(args.seed)
 
     # INIT LOGGING
-    # create base directory if it doesn't exist
-    os.makedirs(args.base_dir, exist_ok=True)
-    os.makedirs(os.path.join(args.base_dir, run_name), exist_ok=True)                                                                
 
-    # Tensorboard
     if not args.load_run:
         run_name =  '{}_{}_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), 
                                             "DEBUG" if args.debug else "SAC", args.env_name,
@@ -173,6 +169,11 @@ def main(args):
                                             )                                                               
     else:
         run_name = args.load_run
+
+    # create base directory if it doesn't exist
+    os.makedirs(args.base_dir, exist_ok=True)
+    os.makedirs(os.path.join(args.base_dir, run_name), exist_ok=True)   
+                                                                 
     # tensorboard
     writer = SummaryWriter(args.base_dir + '/' + run_name)
     
