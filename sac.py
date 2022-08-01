@@ -54,13 +54,6 @@ class SAC(object):
                 self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
-            # self.policy_optim = Adam([
-            #     {
-            #         'params': self.larger_policy.parameters(),
-            #         'lr': args.lr
-            #     },
-            # ])
-            # self.policy = self.larger_policy
             self.switch_counter = 0
 
         else:
@@ -176,12 +169,11 @@ class SAC(object):
         return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
     # Save model parameters
-    def save_checkpoint(self, run_name, suffix="", ckpt_path=None):
-        if not os.path.exists(f"runs/{run_name}/checkpoints/"):
-            os.makedirs(f"runs/{run_name}/checkpoints/")
+    def save_checkpoint(self, run_name, suffix="", ckpt_path=None, base_dir = "runs", sub_folder = "checkpoints"):
+        if not os.path.exists(f"{base_dir}/{run_name}/{sub_folder}/"):
+            os.makedirs(f"{base_dir}/{run_name}/{sub_folder}/")
         if ckpt_path is None:
-            # ckpt_path = "checkpoints/sac_checkpoint_{}_{}".format(env_name, suffix)
-            ckpt_path = f"runs/{run_name}/checkpoints/sac_checkpoint_{suffix}"
+            ckpt_path = f"{base_dir}/{run_name}/{sub_folder}/sac_checkpoint_{suffix}"
             
         print('Saving models to {}'.format(ckpt_path))
         torch.save({'policy_state_dict': self.policy.state_dict(),
