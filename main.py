@@ -44,9 +44,7 @@ def validate_run(args):
         raise ValueError("Run {} does not have a tmp_stats.json file".format(args.load_run))
 
 
-def get_args():
-    parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
-
+def get_args(parser):
     # general args
     parser.add_argument('--env-name', default="HalfCheetah-v2",
                         help='Mujoco Gym environment (default: HalfCheetah-v2)')
@@ -114,8 +112,7 @@ def get_args():
     parser.add_argument('--base_dir', type=str, default="runs",
                         help='Base directory for the experiment')
 
-    args = parser.parse_args()
-    return args
+    return parser
 
 def main(args):
     # if load run is specified, load the run
@@ -347,5 +344,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = get_args()
+    parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
+    parser = get_args(parser)
+    args = parser.parse_args()
     main(args)    
