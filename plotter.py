@@ -29,7 +29,6 @@ def get_config():
     parser.add_argument("--hours", type=int, default=24, help="Hours to run the plotter script for")
     parser.add_argument("--run_dir", type=str, default="runs", help="Path to the base of all runs")
     parser.add_argument("--seed", type=int, default=1, help="Seed, default: 1")
-    parser.add_argument("--env", type=str, default="HalfCheetah-v2", help="Which environment to run eval over")
     
     parser.add_argument("--path_to_ckpt", type=str, help="Path to the ckpt file")
 
@@ -228,7 +227,7 @@ def main(config):
         list_of_allowable_layers = np.arange(4,512)
     else:
         list_of_allowable_layers = [4,8,16,32,64,128,256,512]
-    actual_env_id = config.env
+    actual_env_id = config.run_name.split('_')[3]
     largest_model = [list_of_allowable_layers[-1]]*4
     smallest_model = [list_of_allowable_layers[0]]
     baseline_model = [256,256]
