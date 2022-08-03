@@ -44,7 +44,7 @@ class SAC(object):
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             if self.hyper:
-                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = args.meta_batch_size, device=self.device).to(self.device)
+                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = args.meta_batch_size, device=self.device, search=args.search).to(self.device)
                 self.policy_optim = self.policy.optimizer
             elif self.parallel:
                 self.policy =  EnsembleGaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, meta_size=args.meta_batch_size).to(self.device)
@@ -184,10 +184,26 @@ class SAC(object):
                     'policy_optimizer_state_dict': self.policy_optim.state_dict()}, ckpt_path)
 
     # Load model parameters
-    def load_checkpoint(self, ckpt_path, evaluate=False):
+    def load_checkpoint(self, ckpt_path, evaluate=False, add_search_params = False, device = "cpu"):
         print('Loading models from {}'.format(ckpt_path))
         if ckpt_path is not None:
-            checkpoint = torch.load(ckpt_path)
+            checkpoint = torch.load(ckpt_path, map_location=device)
+
+            if add_search_params:
+                # Add search parameters to the checkpoint
+                checkpoint['policy_state_dict']['base_inp_to_layer1_dist'] = self.policy.base_inp_to_layer1_dist.data
+                checkpoint['policy_state_dict']['base_inp_to_layer2_dist'] = self.policy.base_inp_to_layer2_dist.data
+                checkpoint['policy_state_dict']['base_inp_to_layer3_dist'] = self.policy.base_inp_to_layer3_dist.data
+                checkpoint['policy_state_dict']['base_inp_to_layer4_dist'] = self.policy.base_inp_to_layer4_dist.data
+                checkpoint['policy_state_dict']['conditional_layer2_distribution.0.weight'] = self.policy.conditional_layer2_distribution[0].weight.data
+                checkpoint['policy_state_dict']['conditional_layer2_distribution.0.bias'] = self.policy.conditional_layer2_distribution[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_layer3_distribution.0.weight'] = self.policy.conditional_layer3_distribution[0].weight.data
+                checkpoint['policy_state_dict']['conditional_layer3_distribution.0.bias'] = self.policy.conditional_layer3_distribution[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_layer4_distribution.0.weight'] = self.policy.conditional_layer4_distribution[0].weight.data
+                checkpoint['policy_state_dict']['conditional_layer4_distribution.0.bias'] = self.policy.conditional_layer4_distribution[0].bias.data
+
             self.policy.load_state_dict(checkpoint['policy_state_dict'])
             self.critic.load_state_dict(checkpoint['critic_state_dict'])
             self.critic_target.load_state_dict(checkpoint['critic_target_state_dict'])

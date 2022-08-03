@@ -99,6 +99,8 @@ def get_args(parser):
                         help='condition the q network with the architecture (default: False)')   
     parser.add_argument('--steps_per_arc', type=int, default=50, metavar='N',
                         help='steps to run between architecture samples (default: 50)')
+    parser.add_argument('--search', action ="store_true",
+                        help = 'search for the best architecture (default: False)')
 
     # logging args 
     parser.add_argument('--wandb', action="store_true",

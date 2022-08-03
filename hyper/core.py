@@ -20,7 +20,7 @@ class hyperActor(nn.Module):
                 act_limit, 
                 allowable_layers, 
                 search = False, 
-                conditional = False, 
+                conditional = True, 
                 meta_batch_size = 1,
                 gumbel_tau = 1.0,
                 device = "cpu"
@@ -51,10 +51,10 @@ class hyperActor(nn.Module):
             self.base_inp_to_layer4_dist = nn.Parameter(torch.ones(len(self.list_of_allowable_layers)).to(self.device), requires_grad=True)    
 
             if self.conditional:
-                self.conditional_layer1_distribution = nn.Sequential(nn.Linear(8, 8), nn.ReLU(),nn.Linear(8, 8)).to(self.device)
-                self.conditional_layer2_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
-                self.conditional_layer3_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
-                self.conditional_layer4_distribution = nn.Sequential(nn.Linear(10, 9), nn.ReLU(),nn.Linear(9, 9)).to(self.device)
+                # self.conditional_layer1_distribution = nn.Linear(len(self.list_of_allowable_layers) - 1, len(self.list_of_allowable_layers) - 1).to(self.device)
+                self.conditional_layer2_distribution = nn.Sequential(nn.Linear(1, len(self.list_of_allowable_layers)), nn.ReLU()).to(self.device)
+                self.conditional_layer3_distribution = nn.Sequential(nn.Linear(1, len(self.list_of_allowable_layers)), nn.ReLU()).to(self.device)
+                self.conditional_layer4_distribution = nn.Sequential(nn.Linear(1, len(self.list_of_allowable_layers)), nn.ReLU()).to(self.device)
 
 
         config = {}
@@ -84,10 +84,10 @@ class hyperActor(nn.Module):
                         ], 
                         'lr':1e-3
                     },
-                    {
-                        'params':self.conditional_layer1_distribution.parameters(),
-                        'lr':1e-3
-                    },
+                    # {
+                    #     'params':self.conditional_layer1_distribution.parameters(),
+                    #     'lr':1e-3
+                    # },
                     {
                         'params':self.conditional_layer2_distribution.parameters(),
                         'lr':1e-3
@@ -110,11 +110,11 @@ class hyperActor(nn.Module):
                             self.base_inp_to_layer3_dist,
                             self.base_inp_to_layer4_dist,
                         ],
-                        'lr':8e-3
+                        'lr':1e-3
                     }
                     ])
         self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)
-        self.change_graph()
+        self.change_graph(biased_sample=self.is_search)
 
         self.log_std_logits = nn.Parameter(
                     torch.zeros(act_dim, requires_grad=True))
@@ -128,14 +128,16 @@ class hyperActor(nn.Module):
         self.current_model = []
         shape_inds = []
         param_counts = []
+        capacities = []
         for i in range(self.meta_batch_size):
             fc_layers = []
             shape_ind = [torch.tensor(0).to(self.device)]
             param_count = torch.tensor(0.0).to(self.device)
             # layer 1
             if self.conditional:
-                self.layer_1_sample = self.conditional_layer1_distribution(self.base_inp_to_layer1_dist)
-                self.layer_1_sample = torch.matmul(F.gumbel_softmax(self.layer_1_sample,hard = True, tau=self.tau), self.list_of_allowable_layers[1:])
+                # self.layer_1_sample = self.conditional_layer1_distribution(self.base_inp_to_layer1_dist)
+                # self.layer_1_sample = torch.matmul(F.gumbel_softmax(self.layer_1_sample,hard = True, tau=self.tau), self.list_of_allowable_layers[1:])
+                self.layer_1_sample = torch.matmul(F.gumbel_softmax(self.base_inp_to_layer1_dist,hard = True, tau=self.tau), self.list_of_allowable_layers[1:])
             else:
                 self.layer_1_sample = torch.matmul(F.gumbel_softmax(self.base_inp_to_layer1_dist,hard = True, tau=self.tau), self.list_of_allowable_layers[1:])
             self.layer_1_actual = int(self.layer_1_sample.item())
@@ -146,7 +148,9 @@ class hyperActor(nn.Module):
 
             # layer 2
             if self.conditional:
-                self.layer_2_sample = self.conditional_layer2_distribution(torch.cat([self.base_inp_to_layer2_dist, self.layer_1_sample.detach().view(-1)]))
+                # self.layer_2_sample = self.conditional_layer2_distribution(torch.cat([self.base_inp_to_layer2_dist, self.layer_1_sample.detach().view(-1)]))
+                # self.layer_2_sample = torch.matmul(F.gumbel_softmax(self.layer_2_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
+                self.layer_2_sample = self.conditional_layer2_distribution(self.layer_1_sample.detach().view(-1))
                 self.layer_2_sample = torch.matmul(F.gumbel_softmax(self.layer_2_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
             else:
                 self.layer_2_sample = torch.matmul(F.gumbel_softmax(self.base_inp_to_layer2_dist,hard = True, tau=self.tau), self.list_of_allowable_layers)
@@ -159,7 +163,9 @@ class hyperActor(nn.Module):
 
                 # layer 3
                 if self.conditional:
-                    self.layer_3_sample = self.conditional_layer3_distribution(torch.cat([self.base_inp_to_layer3_dist, self.layer_2_sample.detach().view(-1)]))
+                    # self.layer_3_sample = self.conditional_layer3_distribution(torch.cat([self.base_inp_to_layer3_dist, self.layer_2_sample.detach().view(-1)]))
+                    # self.layer_3_sample = torch.matmul(F.gumbel_softmax(self.layer_3_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
+                    self.layer_3_sample = self.conditional_layer3_distribution(self.layer_2_sample.detach().view(-1))
                     self.layer_3_sample = torch.matmul(F.gumbel_softmax(self.layer_3_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
                 else:
                     self.layer_3_sample = torch.matmul(F.gumbel_softmax(self.base_inp_to_layer3_dist,hard = True, tau=self.tau), self.list_of_allowable_layers)
@@ -172,7 +178,9 @@ class hyperActor(nn.Module):
 
                     # layer 4
                     if self.conditional:
-                        self.layer_4_sample = self.conditional_layer4_distribution(torch.cat([self.base_inp_to_layer4_dist, self.layer_3_sample.detach().view(-1)]))
+                        # self.layer_4_sample = self.conditional_layer4_distribution(torch.cat([self.base_inp_to_layer4_dist, self.layer_3_sample.detach().view(-1)]))
+                        # self.layer_4_sample = torch.matmul(F.gumbel_softmax(self.layer_4_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
+                        self.layer_4_sample = self.conditional_layer4_distribution(self.layer_3_sample.detach().view(-1))
                         self.layer_4_sample = torch.matmul(F.gumbel_softmax(self.layer_4_sample,hard = True, tau=self.tau), self.list_of_allowable_layers)
                     else:
                         self.layer_4_sample = torch.matmul(F.gumbel_softmax(self.base_inp_to_layer4_dist,hard = True, tau=self.tau), self.list_of_allowable_layers)
@@ -201,12 +209,13 @@ class hyperActor(nn.Module):
             shape_ind = torch.stack(shape_ind).view(-1,1)
             shape_inds.append(shape_ind)
             param_counts.append(param_count)
+            capacities.append(get_capacity(fc_layers, self.obs_dim, self.act_dim))
 
         shape_inds = torch.cat(shape_inds) 
-        self.current_capacity = get_capacity(fc_layers, self.obs_dim, self.act_dim)
-        self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
+        self.current_capacites = np.array(capacities)
         _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = shape_inds)
         self.param_counts = torch.stack(param_counts)
+        self.current_number_of_params = self.param_counts.detach().cpu().numpy()
     
     def re_query_uniform_weights(self, repeat_sample = False):
         self.current_model = []
