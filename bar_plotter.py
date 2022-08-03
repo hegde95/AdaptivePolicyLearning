@@ -177,6 +177,8 @@ def main(config):
     average_params_dict = {}
     std_rewards_dict = {}
     std_params_dict = {}
+    min_params_dict = {}
+    max_params_dict = {}
     for epoch in list_of_epochs:
         average_rewards_dict[epoch] = {
             "row_max": np.mean([reward_results_dict[epoch][seed]["row_max"] for seed in list_of_seeds]),
@@ -234,6 +236,34 @@ def main(config):
             "row_10_percent": np.std([param_results_dict[epoch][seed]["row_10_percent"] for seed in list_of_seeds]),
         }
 
+        min_params_dict[epoch] = {
+            "row_max": np.min([param_results_dict[epoch][seed]["row_max"] for seed in list_of_seeds]),
+            "row_99_percent": np.min([param_results_dict[epoch][seed]["row_99_percent"] for seed in list_of_seeds]),
+            "row_90_percent": np.min([param_results_dict[epoch][seed]["row_90_percent"] for seed in list_of_seeds]),
+            "row_80_percent": np.min([param_results_dict[epoch][seed]["row_80_percent"] for seed in list_of_seeds]),
+            "row_70_percent": np.min([param_results_dict[epoch][seed]["row_70_percent"] for seed in list_of_seeds]),
+            "row_60_percent": np.min([param_results_dict[epoch][seed]["row_60_percent"] for seed in list_of_seeds]),
+            "row_50_percent": np.min([param_results_dict[epoch][seed]["row_50_percent"] for seed in list_of_seeds]),
+            "row_40_percent": np.min([param_results_dict[epoch][seed]["row_40_percent"] for seed in list_of_seeds]),
+            "row_30_percent": np.min([param_results_dict[epoch][seed]["row_30_percent"] for seed in list_of_seeds]),
+            "row_20_percent": np.min([param_results_dict[epoch][seed]["row_20_percent"] for seed in list_of_seeds]),
+            "row_10_percent": np.min([param_results_dict[epoch][seed]["row_10_percent"] for seed in list_of_seeds]),
+        }
+
+        max_params_dict[epoch] = {
+            "row_max": np.max([param_results_dict[epoch][seed]["row_max"] for seed in list_of_seeds]),
+            "row_99_percent": np.max([param_results_dict[epoch][seed]["row_99_percent"] for seed in list_of_seeds]),
+            "row_90_percent": np.max([param_results_dict[epoch][seed]["row_90_percent"] for seed in list_of_seeds]),
+            "row_80_percent": np.max([param_results_dict[epoch][seed]["row_80_percent"] for seed in list_of_seeds]),
+            "row_70_percent": np.max([param_results_dict[epoch][seed]["row_70_percent"] for seed in list_of_seeds]),
+            "row_60_percent": np.max([param_results_dict[epoch][seed]["row_60_percent"] for seed in list_of_seeds]),
+            "row_50_percent": np.max([param_results_dict[epoch][seed]["row_50_percent"] for seed in list_of_seeds]),
+            "row_40_percent": np.max([param_results_dict[epoch][seed]["row_40_percent"] for seed in list_of_seeds]),
+            "row_30_percent": np.max([param_results_dict[epoch][seed]["row_30_percent"] for seed in list_of_seeds]),
+            "row_20_percent": np.max([param_results_dict[epoch][seed]["row_20_percent"] for seed in list_of_seeds]),
+            "row_10_percent": np.max([param_results_dict[epoch][seed]["row_10_percent"] for seed in list_of_seeds]),
+        }        
+
     # subplot average and std rewards and params
     fig, axs = plt.subplots(1,2, figsize=(25, 15))
     axs[0].plot(list_of_epochs, [average_rewards_dict[epoch]["row_max"] for epoch in list_of_epochs], label="max")
@@ -289,6 +319,19 @@ def main(config):
     # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_30_percent"] - std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_30_percent"] + std_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], alpha=0.2)
     # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_20_percent"] - std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_20_percent"] + std_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], alpha=0.2)
     # # axs[1].fill_between(list_of_epochs, [average_params_dict[epoch]["row_10_percent"] - std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], [average_params_dict[epoch]["row_10_percent"] + std_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], alpha=0.2)
+
+    # fill in the area between the lines with the std
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_max"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_max"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_99_percent"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_90_percent"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_80_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_70_percent"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_60_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_50_percent"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_40_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_30_percent"] for epoch in list_of_epochs], alpha=0.2)
+    axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_20_percent"] for epoch in list_of_epochs], alpha=0.2)
+    # axs[1].fill_between(list_of_epochs, [min_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], [max_params_dict[epoch]["row_10_percent"] for epoch in list_of_epochs], alpha=0.2)
 
 
     # make y axis logarithmic
