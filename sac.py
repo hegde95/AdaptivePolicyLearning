@@ -62,8 +62,8 @@ class SAC(object):
             self.policy = DeterministicPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
-    def switch_policy(self):
-        self.policy.change_graph()
+    def switch_policy(self, state = None):
+        self.policy.change_graph(state)
         self.switch_counter = 0
         if self.parallel:
             self.policy_optim = self.policy.current_optimizers
@@ -191,18 +191,25 @@ class SAC(object):
 
             if add_search_params:
                 # Add search parameters to the checkpoint
-                checkpoint['policy_state_dict']['base_inp_to_layer1_dist'] = self.policy.base_inp_to_layer1_dist.data
-                checkpoint['policy_state_dict']['base_inp_to_layer2_dist'] = self.policy.base_inp_to_layer2_dist.data
-                checkpoint['policy_state_dict']['base_inp_to_layer3_dist'] = self.policy.base_inp_to_layer3_dist.data
-                checkpoint['policy_state_dict']['base_inp_to_layer4_dist'] = self.policy.base_inp_to_layer4_dist.data
-                checkpoint['policy_state_dict']['conditional_layer2_distribution.0.weight'] = self.policy.conditional_layer2_distribution[0].weight.data
-                checkpoint['policy_state_dict']['conditional_layer2_distribution.0.bias'] = self.policy.conditional_layer2_distribution[0].bias.data
+ 
+                # checkpoint['policy_state_dict']['conditional_layer1_distribution.0.weight'] = self.policy.conditional_layer1_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer1_distribution.0.bias'] = self.policy.conditional_layer1_distribution[0].bias.data
 
-                checkpoint['policy_state_dict']['conditional_layer3_distribution.0.weight'] = self.policy.conditional_layer3_distribution[0].weight.data
-                checkpoint['policy_state_dict']['conditional_layer3_distribution.0.bias'] = self.policy.conditional_layer3_distribution[0].bias.data
 
-                checkpoint['policy_state_dict']['conditional_layer4_distribution.0.weight'] = self.policy.conditional_layer4_distribution[0].weight.data
-                checkpoint['policy_state_dict']['conditional_layer4_distribution.0.bias'] = self.policy.conditional_layer4_distribution[0].bias.data
+                # checkpoint['policy_state_dict']['conditional_layer2_distribution.0.weight'] = self.policy.conditional_layer2_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer2_distribution.0.bias'] = self.policy.conditional_layer2_distribution[0].bias.data
+
+                # checkpoint['policy_state_dict']['conditional_layer3_distribution.0.weight'] = self.policy.conditional_layer3_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer3_distribution.0.bias'] = self.policy.conditional_layer3_distribution[0].bias.data
+
+                # checkpoint['policy_state_dict']['conditional_layer4_distribution.0.weight'] = self.policy.conditional_layer4_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer4_distribution.0.bias'] = self.policy.conditional_layer4_distribution[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_arc_dist.0.weight'] = self.policy.conditional_arc_dist[0].weight.data
+                checkpoint['policy_state_dict']['conditional_arc_dist.0.bias'] = self.policy.conditional_arc_dist[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_arc_dist.2.weight'] = self.policy.conditional_arc_dist[2].weight.data
+                checkpoint['policy_state_dict']['conditional_arc_dist.2.bias'] = self.policy.conditional_arc_dist[2].bias.data
 
             self.policy.load_state_dict(checkpoint['policy_state_dict'])
             self.critic.load_state_dict(checkpoint['critic_state_dict'])
