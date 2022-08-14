@@ -38,16 +38,16 @@ class hyperActor(nn.Module):
 
         self.list_of_arcs = []
         for k in range(1,5):
-            dum = list(cartesian_product(list_of_allowable_layers, repeat=k))
-            if k == 1:
-                self.list_of_arcs.extend(dum)
-            elif k == 2:
-                self.list_of_arcs.extend(list(filter(lambda x:(x[1]<=x[0]), dum)))
-            elif k == 3:
-                self.list_of_arcs.extend(list(filter(lambda x:((x[1]<=x[0]) and (x[2]<=x[1])), dum)))
-            elif k == 4:
-                self.list_of_arcs.extend(list(filter(lambda x:((x[1]<=x[0]) and (x[2]<=x[1]) and (x[3]<=x[2])), dum)))
-            # self.list_of_arcs.extend(list(product(list_of_allowable_layers, repeat = k)))
+            # dum = list(cartesian_product(list_of_allowable_layers, repeat=k))
+            # if k == 1:
+            #     self.list_of_arcs.extend(dum)
+            # elif k == 2:
+            #     self.list_of_arcs.extend(list(filter(lambda x:(x[1]<=x[0]), dum)))
+            # elif k == 3:
+            #     self.list_of_arcs.extend(list(filter(lambda x:((x[1]<=x[0]) and (x[2]<=x[1])), dum)))
+            # elif k == 4:
+            #     self.list_of_arcs.extend(list(filter(lambda x:((x[1]<=x[0]) and (x[2]<=x[1]) and (x[3]<=x[2])), dum)))
+            self.list_of_arcs.extend(list(product(list_of_allowable_layers, repeat = k)))
         self.list_of_arcs.sort(key = lambda x:self.get_params(x))
 
         # self.list_of_arcs_tensors = [torch.Tensor(arc).to(self.device) for arc in self.list_of_arcs]
@@ -70,13 +70,18 @@ class hyperActor(nn.Module):
             self.list_of_shape_inds[i] = torch.cat([self.list_of_shape_inds[i], torch.tensor(-1).to(self.device).repeat(num_pad,1)], 0)
         self.list_of_shape_inds = torch.stack(self.list_of_shape_inds)
         self.list_of_shape_inds = self.list_of_shape_inds.reshape(len(self.list_of_shape_inds),max_len)
+        self.list_of_arc_indices = np.arange(len(self.list_of_arcs))
+        # shuffle the list of arcs indices
+        np.random.shuffle(self.list_of_arc_indices)
+        self.current_model_indices = np.arange(self.meta_batch_size)
         # self.list_of_shape_inds = self.list_of_shape_inds.permute(1,2,0)
-
-        list_of_allowable_layers.append(0)
-        list_of_allowable_layers.sort()
-        self.list_of_allowable_layers = torch.Tensor(list_of_allowable_layers).to(self.device)
-
+        
         if self.is_search:
+
+            list_of_allowable_layers.append(0)
+            list_of_allowable_layers.sort()
+            self.list_of_allowable_layers = torch.Tensor(list_of_allowable_layers).to(self.device)
+
             self.tau = gumbel_tau
             # self.conditional_layer1_distribution = nn.Sequential(nn.Linear(obs_dim, len(self.list_of_allowable_layers) - 1), nn.ReLU()).to(self.device)
             # self.conditional_layer2_distribution = nn.Sequential(nn.Linear(1 + obs_dim, len(self.list_of_allowable_layers)), nn.ReLU()).to(self.device)
@@ -128,7 +133,7 @@ class hyperActor(nn.Module):
                 ])
 
         self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)
-        self.change_graph()
+        # self.change_graph()
 
         self.log_std_logits = nn.Parameter(
                     torch.zeros(act_dim, requires_grad=True))
@@ -241,38 +246,68 @@ class hyperActor(nn.Module):
         return ct            
 
 
-    def re_query_uniform_weights(self, repeat_sample = False):
-        self.current_model = []
-        shape_inds = []
-        self.create_random_net(repeat_sample)
-        for i in range(self.meta_batch_size):
-            net = MlpNetwork(**self.net_args[i])
-            self.current_model.append(net)
-            self.layer_1_actual = 0
-            self.layer_2_actual = 0
-            self.layer_3_actual = 0
-            self.layer_4_actual = 0
+    # def re_query_uniform_weights2(self, repeat_sample = False):
+    #     self.current_model = []
+    #     shape_inds = []
+    #     self.create_random_net(repeat_sample)
+    #     for i in range(self.meta_batch_size):
+    #         net = MlpNetwork(**self.net_args[i])
+    #         self.current_model.append(net)
+    #         self.layer_1_actual = 0
+    #         self.layer_2_actual = 0
+    #         self.layer_3_actual = 0
+    #         self.layer_4_actual = 0
 
-            shape_ind = [[0]]
-            for j, layer in enumerate(self.net_args[i]['fc_layers']):
-                if j == 0:
-                    self.layer_1_actual = layer
-                if j == 1:
-                    self.layer_2_actual = layer
-                if j == 2:
-                    self.layer_3_actual = layer
-                if j == 3:
-                    self.layer_4_actual = layer
-                shape_ind.append([layer])
-                shape_ind.append([layer])
-            shape_ind.append([self.net_args[i]['out_dim']])
-            shape_ind.append([self.net_args[i]['out_dim']])     
-            shape_ind = torch.Tensor(shape_ind).to(self.device)     
-            shape_inds.append(shape_ind)
-        shape_inds = torch.cat(shape_inds)    
-        # self.current_capacity = get_capacity(self.net_args[i]['fc_layers'], self.obs_dim, self.act_dim)
-        # self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
-        _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = shape_inds)
+    #         shape_ind = [[0]]
+    #         for j, layer in enumerate(self.net_args[i]['fc_layers']):
+    #             if j == 0:
+    #                 self.layer_1_actual = layer
+    #             if j == 1:
+    #                 self.layer_2_actual = layer
+    #             if j == 2:
+    #                 self.layer_3_actual = layer
+    #             if j == 3:
+    #                 self.layer_4_actual = layer
+    #             shape_ind.append([layer])
+    #             shape_ind.append([layer])
+    #         shape_ind.append([self.net_args[i]['out_dim']])
+    #         shape_ind.append([self.net_args[i]['out_dim']])     
+    #         shape_ind = torch.Tensor(shape_ind).to(self.device)     
+    #         shape_inds.append(shape_ind)
+    #     shape_inds = torch.cat(shape_inds)    
+    #     # self.current_capacity = get_capacity(self.net_args[i]['fc_layers'], self.obs_dim, self.act_dim)
+    #     # self.current_number_of_params = sum(p.numel() for p in self.current_model[0].parameters())
+    #     _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = shape_inds)
+
+    # def create_random_net(self, repeat_sample = False):
+    #     if not repeat_sample:
+    #         self.net_args = []
+    #         for k in range(self.meta_batch_size):
+    #             # num_layer = np.random.choice([1,2,3,4])
+    #             # self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
+    #             self.fc_layers = list(np.random.choice(self.list_of_arcs))
+    #             self.net_args.append({
+    #                 'fc_layers':self.fc_layers,
+    #                 'inp_dim':self.obs_dim,
+    #                 'out_dim':2 * self.act_dim
+    #             })
+
+
+    def re_query_uniform_weights(self, repeat_sample = False):
+        if not repeat_sample:
+            self.sampled_indices = self.list_of_arc_indices[self.current_model_indices]
+            self.sampled_shape_inds = torch.cat([self.list_of_shape_inds[index][:self.list_of_shape_inds_lenths[index]] for index in self.sampled_indices]).view(-1,1)   
+            self.current_model_indices += self.meta_batch_size  
+            if max(self.current_model_indices) >= len(self.list_of_arc_indices):
+                self.current_model_indices = np.arange(self.meta_batch_size)
+                # shuffle
+                np.random.shuffle(self.list_of_arc_indices)
+
+            self.current_model = [MlpNetwork(fc_layers=self.list_of_arcs[index], inp_dim = self.obs_dim, out_dim = 2 * self.act_dim) for index in self.sampled_indices]
+            self.param_counts = [self.get_params(self.list_of_arcs[index]) for index in self.sampled_indices]
+            self.capacities = [get_capacity(self.list_of_arcs[index], self.obs_dim, self.act_dim) for index in self.sampled_indices]
+        _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = self.sampled_shape_inds)
+
 
     def change_graph(self, biased_sample = False, repeat_sample = False, state = None, eval = False):
         if biased_sample:
@@ -282,19 +317,6 @@ class hyperActor(nn.Module):
 
     
     
-    def create_random_net(self, repeat_sample = False):
-        if not repeat_sample:
-            self.net_args = []
-            for k in range(self.meta_batch_size):
-                # num_layer = np.random.choice([1,2,3,4])
-                # self.fc_layers = list(np.random.choice(self.list_of_allowable_layers[1:].cpu().numpy().astype(int),num_layer))
-                self.fc_layers = list(np.random.choice(self.list_of_arcs))
-                self.net_args.append({
-                    'fc_layers':self.fc_layers,
-                    'inp_dim':self.obs_dim,
-                    'out_dim':2 * self.act_dim
-                })
-
 
 
     def forward(self, state):
