@@ -143,12 +143,17 @@ def main(args):
 
 
         # get latest checkpoint
-        checkpoint_folder = os.path.join(args.base_dir, args.load_run, "latest_model")
-        list_of_ckpts = [os.path.join(checkpoint_folder,file) for file in os.listdir(checkpoint_folder)]
+        latest_model_folder = os.path.join(args.base_dir, args.load_run, "latest_model")
+        list_of_ckpts = [os.path.join(latest_model_folder,file) for file in os.listdir(latest_model_folder)]
+
         # if there are no checkpoints, raise error
         if len(list_of_ckpts) == 0:
             raise ValueError("Run {} has no checkpoints".format(args.load_run))
-        latest_ckpt = list_of_ckpts[-1]
+        for file in list_of_ckpts:
+            if "backup" in file:
+                latest_ckpt_backup = file
+            else:
+                latest_ckpt = file
 
 
 
@@ -171,7 +176,9 @@ def main(args):
 
     # create base directory if it doesn't exist
     os.makedirs(args.base_dir, exist_ok=True)
-    os.makedirs(os.path.join(args.base_dir, run_name), exist_ok=True)   
+    os.makedirs(os.path.join(args.base_dir, run_name), exist_ok=True) 
+    os.makedirs(os.path.join(args.base_dir, run_name, "latest_model"), exist_ok=True)
+    os.makedirs(os.path.join(args.base_dir, run_name, "latest_memory"), exist_ok=True)  
 
     # tensorboard
     writer = SummaryWriter(args.base_dir + '/' + run_name)
@@ -236,17 +243,27 @@ def main(args):
     # if load run is specified, load the memory, total_numsteps and the agent
     if args.load_run:
         # load the memory
-        memory.load_buffer(os.path.join(args.base_dir, args.load_run, "memory.pkl"))
-
+        try:
+            memory.load_buffer(os.path.join(args.base_dir, args.load_run, "latest_memory", "memory.pkl"))
+            print("Loaded memory from {}".format(os.path.join(args.base_dir, args.load_run, "latest_memory", "memory.pkl")))
+        except:
+            memory.load_buffer(os.path.join(args.base_dir, args.load_run, "latest_memory", "memory_backup.pkl"))
+            print("Could not load memory from {}. Loaded from {}.".format(os.path.join(args.base_dir, args.load_run, "latest_memory", "memory.pkl"), os.path.join(args.base_dir, args.load_run, "latest_memory", "memory_backup.pkl")))
+        
         # load stats
         total_numsteps = loaded_tmp_stats["total_numsteps"]
         updates = loaded_tmp_stats["updates"]
         episodes_st = loaded_tmp_stats["episode"]
+        print("Loaded stats from {}".format(os.path.join(args.base_dir, args.load_run, "tmp_stats.json")))
 
         # load the agent
-        agent.load_checkpoint(latest_ckpt)
+        try:
+            agent.load_checkpoint(latest_ckpt)
+            print("Loaded agent from {}".format(latest_ckpt))
+        except:
+            agent.load_checkpoint(latest_ckpt_backup)
+            print("Could not load agent from {}. Loaded from {}.".format(latest_ckpt, latest_ckpt_backup))
 
-        print("Loaded memory, stats and model from {}".format(args.load_run))
 
 
     # MAIN LOOP
@@ -314,11 +331,19 @@ def main(args):
         with open(os.path.join(args.base_dir, run_name, 'tmp_stats.json'), 'w') as f:
             json.dump({"updates": updates, "episode": i_episode, "total_numsteps": total_numsteps}, f)
         
+        # check if a latest model exists and rename it to backup
+        latest_ckpt = os.path.join(args.base_dir, run_name, 'latest_model', 'sac_checkpoint_latest')
+        if os.path.exists(latest_ckpt):
+            os.rename(latest_ckpt, latest_ckpt + '_backup')
         # save latest model
         agent.save_checkpoint(run_name = run_name, suffix="latest", base_dir=args.base_dir, sub_folder="latest_model", verbose=False)
 
+        # check if a memory file exists and rename it to backup
+        memory_file = os.path.join(args.base_dir, run_name, "latest_memory", 'memory.pkl')
+        if os.path.exists(memory_file):
+            os.rename(memory_file, memory_file.split(".")[0] + '_backup.pkl')
         # save memory
-        memory.save_buffer(save_path = os.path.join(args.base_dir, run_name, "memory.pkl"), env_name = args.env_name, verbose=False)
+        memory.save_buffer(save_path = os.path.join(args.base_dir, run_name, "latest_memory", "memory.pkl"), env_name = args.env_name, verbose=False)
 
         if total_numsteps > args.num_steps:
             break
