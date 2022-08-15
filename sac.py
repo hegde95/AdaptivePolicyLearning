@@ -51,7 +51,7 @@ class SAC(object):
                 # self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
                 self.policy_optim = self.policy.current_optimizers
             else:
-                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
+                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, is_taper = args.taper).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
             self.switch_counter = 0

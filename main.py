@@ -79,6 +79,8 @@ def get_args(parser):
                         help='batch size (default: 256)')
     parser.add_argument('--hidden_size', type=int, default=256, metavar='N',
                         help='hidden size (default: 256)')
+    parser.add_argument('--taper', action = "store_true",
+                        help='Taper the model shape (default: False)')
     parser.add_argument('--start_steps', type=int, default=10000, metavar='N',
                         help='Steps sampling random actions (default: 2000)')
     parser.add_argument('--target_update_interval', type=int, default=1, metavar='N',

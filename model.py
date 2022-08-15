@@ -95,15 +95,16 @@ class ConditionalQNetwork(nn.Module):
         return x1, x2
 
 class GaussianPolicy(nn.Module):
-    def __init__(self, num_inputs, num_actions, hidden_dim, action_space=None, is_small = False, c = 8):
+    def __init__(self, num_inputs, num_actions, hidden_dim, action_space=None, is_taper = False):
         super(GaussianPolicy, self).__init__()
-        self.is_small = is_small
+        self.is_taper = is_taper
         
-        if is_small:
-            self.linear1 = nn.Linear(num_inputs, hidden_dim//c)
+        if is_taper:
+            self.linear1 = nn.Linear(num_inputs, hidden_dim * 2)
+            self.linear2 = nn.Linear(hidden_dim * 2, hidden_dim)
 
-            self.mean_linear = nn.Linear(hidden_dim//c, num_actions)
-            self.log_std_linear = nn.Linear(hidden_dim//c, num_actions)
+            self.mean_linear = nn.Linear(hidden_dim, num_actions)
+            self.log_std_linear = nn.Linear(hidden_dim, num_actions)
             
         else:
             self.linear1 = nn.Linear(num_inputs, hidden_dim)
@@ -125,12 +126,8 @@ class GaussianPolicy(nn.Module):
                 (action_space.high + action_space.low) / 2.)
 
     def forward(self, state):
-        if self.is_small:
-            x = F.relu(self.linear1(state))
-        else:
-            x = F.relu(self.linear1(state))
-            x = F.relu(self.linear2(x))
-
+        x = F.relu(self.linear1(state))
+        x = F.relu(self.linear2(x))
 
         mean = self.mean_linear(x)
         log_std = self.log_std_linear(x)
