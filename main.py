@@ -1,18 +1,19 @@
 import argparse
+from copy import copy, deepcopy
 import datetime
 import logging
 import gym
 import numpy as np
 import itertools
 import torch
-from sac import SAC
+from SAC.sac import SAC_Agent
 from torch.utils.tensorboard import SummaryWriter
-from replay_memory import ReplayMemory
+from SAC.replay_memory import ReplayMemory
 from stable_baselines3.common.vec_env import SubprocVecEnv
 import wandb
 import random
 import os, json
-
+from configs.config_helper import get_args, override_config
 
 def evaluate(N, eval_env, agent):
     avg_reward = 0.
@@ -44,79 +45,6 @@ def validate_run(args):
         raise ValueError("Run {} does not have a tmp_stats.json file".format(args.load_run))
 
 
-def get_args(parser):
-    # general args
-    parser.add_argument('--env-name', default="HalfCheetah-v2",
-                        help='Mujoco Gym environment (default: HalfCheetah-v2)')
-    parser.add_argument('--seed', type=int, default=123456, metavar='N',
-                        help='random seed (default: 123456)')
-    parser.add_argument('--eval', type=bool, default=True,
-                        help='Evaluates a policy a policy every 10 episode (default: True)')
-    parser.add_argument('--num_steps', type=int, default=3000001, metavar='N',
-                        help='maximum number of steps (default: 3000000)')
-    parser.add_argument('--cuda', action="store_true",
-                        help='run on CUDA (default: False)')
-    parser.add_argument('--cuda_device', type=int, default=0,
-                    help="sets the cuda device to run experiments on")
-    parser.add_argument('--debug', action="store_true",
-                        help='Will run in debug. (default: False')  
-
-    # sac args
-    parser.add_argument('--policy', default="Gaussian",
-                        help='Policy Type: Gaussian | Deterministic (default: Gaussian)')
-    parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
-                        help='discount factor for reward (default: 0.99)')
-    parser.add_argument('--tau', type=float, default=0.005, metavar='G',
-                        help='target smoothing coefficient(τ) (default: 0.005)')
-    parser.add_argument('--lr', type=float, default=0.0003, metavar='G',
-                        help='learning rate (default: 0.0003)')
-    parser.add_argument('--alpha', type=float, default=0.2, metavar='G',
-                        help='Temperature parameter α determines the relative importance of the entropy\
-                                term against the reward (default: 0.2)')
-    parser.add_argument('--automatic_entropy_tuning', type=bool, default=False, metavar='G',
-                        help='Automaically adjust α (default: False)')
-    parser.add_argument('--batch_size', type=int, default=256, metavar='N',
-                        help='batch size (default: 256)')
-    parser.add_argument('--hidden_size', type=int, default=256, metavar='N',
-                        help='hidden size (default: 256)')
-    parser.add_argument('--taper', action = "store_true",
-                        help='Taper the model shape (default: False)')
-    parser.add_argument('--start_steps', type=int, default=10000, metavar='N',
-                        help='Steps sampling random actions (default: 2000)')
-    parser.add_argument('--target_update_interval', type=int, default=1, metavar='N',
-                        help='Value target update per no. of updates per step (default: 1)')
-    parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',
-                        help='size of replay buffer (default: 10000000)')
-
-    # hyper args
-    parser.add_argument('--meta_batch_size', type=int, default=8, metavar='N',
-                    help='hidden size (default: 8)')    
-    parser.add_argument('--updates_per_step', type=int, default=8, metavar='N',
-                        help='model updates per simulator step (default: 8)')
-    parser.add_argument('--hyper', action="store_true",
-                        help='run with a hyper network (default: False)') 
-    parser.add_argument('--parallel', action="store_true",
-                        help='run with an ensemble of networks (default: False)')
-    parser.add_argument('--condition_q', action="store_true",
-                        help='condition the q network with the architecture (default: False)')   
-    parser.add_argument('--steps_per_arc', type=int, default=50, metavar='N',
-                        help='steps to run between architecture samples (default: 50)')
-    parser.add_argument('--search', action ="store_true",
-                        help = 'search for the best architecture (default: False)')
-
-    # logging args 
-    parser.add_argument('--wandb', action="store_true",
-                        help='Log to wandb. (default: False')  
-    parser.add_argument('--wandb-tag', type=str, default="",
-                        help='Use a custom tag for wandb. (default: "")')                        
-    parser.add_argument('--save_model', action="store_true",
-                    help="save the model after each episode")
-    parser.add_argument('--load_run', type=str,
-                        help='Load a run from latest checkpoint')
-    parser.add_argument('--base_dir', type=str, default="runs",
-                        help='Base directory for the experiment')
-
-    return parser
 
 def main(args):
     # if load run is specified, load the run
@@ -232,7 +160,7 @@ def main(args):
         eval_env.action_space.seed(args.seed + 1)
 
     # Agent
-    agent = SAC(env.observation_space.shape[0], env.action_space, args)
+    agent = SAC_Agent(env.observation_space.shape[0], env.action_space, args)
 
     # Memory
     memory = ReplayMemory(args.replay_size, args.seed)
@@ -376,4 +304,5 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
     parser = get_args(parser)
     args = parser.parse_args()
+    args = override_config(args)
     main(args)    

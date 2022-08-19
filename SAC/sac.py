@@ -2,13 +2,13 @@ import os
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
-from utils import soft_update, hard_update
-from model import GaussianPolicy, QNetwork, DeterministicPolicy, EnsembleGaussianPolicy, ConditionalQNetwork
+from SAC.utils import soft_update, hard_update
+from SAC.model import GaussianPolicy, QNetwork, DeterministicPolicy, EnsembleGaussianPolicy, ConditionalQNetwork
 
 from hyper.core import hyperActor
 import numpy as np
 
-class SAC(object):
+class SAC_Agent(object):
     def __init__(self, num_inputs, action_space, args):
 
         self.gamma = args.gamma

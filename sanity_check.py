@@ -1,6 +1,6 @@
-from main import get_args
+from configs.config_helper import get_args, override_config
 import argparse
-from sac import SAC
+from SAC.sac import SAC_Agent
 from stable_baselines3.common.vec_env import SubprocVecEnv
 import gym
 from torch import device
@@ -9,7 +9,7 @@ import torch
 import random
 from collections import deque 
 import pandas as pd
-from replay_memory import ReplayMemory
+from SAC.replay_memory import ReplayMemory
 import itertools
 import matplotlib.pyplot as plt
 import tqdm
@@ -38,7 +38,7 @@ def main(args):
     eval_env.action_space.seed(args.seed)
 
 
-    agent = SAC(env.observation_space.shape[0], env.action_space, args)
+    agent = SAC_Agent(env.observation_space.shape[0], env.action_space, args)
 
     size_tracker = deque(maxlen=100)
     # capacity_tracker = deque(maxlen=100)
@@ -117,4 +117,5 @@ if __name__ == "__main__":
     parser = get_args(parser)
     parser = get_apl_args(parser)
     args = parser.parse_args()
+    args = override_config(args)
     main(args)
