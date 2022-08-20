@@ -6,6 +6,17 @@ To run from config file:
 
     python main.py --cuda True --seed 123 --base_dir runs --config ant
 
+Suggested override options for config runs:
+
+    --seed, "set seed for random number generator"
+    --cuda, "use cuda"
+    --cuda_device, "set cuda device"
+    --debug, "run in debug mode" 
+    --hyper, "use hyper policy, default with config is True"
+    --parallel, "use an ensemble of parallel policies, default with config is False"
+    --wandb, "use wandb, default with config is True" 
+    --wandb-tag, "set wandb tag, default with config is bm8"
+    --base_dir, "set base directory for runs, default with config is runs2"
 
 To resume training from a previous run:
 
