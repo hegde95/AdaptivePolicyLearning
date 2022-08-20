@@ -73,6 +73,15 @@ def get_args(parser):
     parser.add_argument('--base_dir', type=str,
                         help='Base directory for the experiment (default: runs)')
 
+    # dm control args
+    parser.add_argument('--dm_control', type = bool,
+                        help='run with dm control (default: False)')
+    parser.add_argument('--domain', type=str,
+                        help='domain to run dm control on (default: quadruped)')
+    parser.add_argument('--task', type=str,
+                        help='task to run dm control on (default: fetch)')
+
+
     parser.add_argument('--config', type=str, default="",
                         help = "Name of the config file to load, stored in the configs folder")
 
@@ -110,6 +119,9 @@ def set_arg_defaults(config):
     config.save_model = config.save_model if config.save_model else False
     config.load_run = config.load_run if config.load_run else None
     config.base_dir = config.base_dir if config.base_dir else "runs"
+    config.dm_control = config.dm_control if config.dm_control else False
+    config.domain = config.domain if config.domain else "quadruped"
+    config.task = config.task if config.task else "fetch"
     
     return config
 

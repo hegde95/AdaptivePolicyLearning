@@ -14,6 +14,7 @@ import wandb
 import random
 import os, json
 from configs.config_helper import get_args, override_config
+import dmc2gym
 
 def evaluate(N, eval_env, agent):
     avg_reward = 0.
@@ -96,7 +97,8 @@ def main(args):
 
     if not args.load_run:
         run_name =  '{}_{}_{}_{}_{}_{}_{}'.format(datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S"), 
-                                            "DEBUG" if args.debug else "SAC", args.env_name,
+                                            "DEBUG" if args.debug else "SAC", 
+                                            "dm" + args.domain + args.task if args.dm_control else args.env_name,
                                             args.policy, "autotune" if args.automatic_entropy_tuning else "",
                                             "hyper" if args.hyper else "",
                                             str(args.seed)
@@ -148,13 +150,19 @@ def main(args):
 
     # Environment
     N = args.meta_batch_size
-    env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
+    if args.dm_control:
+        env_fns = [lambda: dmc2gym.make(domain_name='quadruped', task_name='fetch', seed=args.seed) for _ in range(N)]
+    else:
+        env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
     env = SubprocVecEnv(env_fns)
     env.seed(args.seed)
     env.action_space.seed(args.seed)
 
     if args.eval:
-        eval_env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
+        if args.dm_control:
+            eval_env_fns = [lambda: dmc2gym.make(domain_name='quadruped', task_name='fetch', seed=args.seed + 1) for _ in range(N)]
+        else:
+            eval_env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
         eval_env = SubprocVecEnv(eval_env_fns)
         eval_env.seed(args.seed + 1)
         eval_env.action_space.seed(args.seed + 1)
