@@ -131,6 +131,8 @@ def get_plots_lims(env_name):
         return -30, 10000, 3, 10, 3, 14
     elif env_name in ["InvertedPendulum-v2", "InvertedPendulum-v3"]:
         return -30, 1100, 3, 9, 4, 14
+    elif env_name in ["Humanoid-v2", "Humanoid-v3"]:
+        return -30, 10000, 5, 13, 5, 15
     else:
         raise ValueError('Given Env has no plot limits.')
 
