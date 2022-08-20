@@ -206,7 +206,7 @@ def main(args):
 
     # MAIN LOOP
     for i_episode in itertools.count(1 + episodes_st):
-        episode_reward = 0
+        episode_reward = np.zeros(N)
         episode_steps = 0
         critic_1_losss, critic_2_losss, policy_losss, ent_losss, alpha_losss, updatess = [], [], [], [], [], []
         done = np.array([False for _ in range(N)])
@@ -238,7 +238,8 @@ def main(args):
             next_state, reward, done, _ = env.step(action) # Step
             episode_steps += N
             total_numsteps += N
-            episode_reward += reward
+            # episode_reward += reward
+            np.add(episode_reward, reward, out=episode_reward, casting="unsafe")
 
             # Ignore the "done" signal if it comes from hitting the time horizon.
             # (https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py)
