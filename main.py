@@ -152,7 +152,7 @@ def main(args):
     # Environment
     N = args.meta_batch_size
     if args.dm_control:
-        env_fns = [lambda: dmc2gym.make(domain_name='quadruped', task_name='fetch', seed=args.seed) for _ in range(N)]
+        env_fns = [lambda: dmc2gym.make(domain_name=args.domain, task_name=args.task, seed=args.seed) for _ in range(N)]
     else:
         env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
     env = SubprocVecEnv(env_fns)
@@ -161,7 +161,7 @@ def main(args):
 
     if args.eval:
         if args.dm_control:
-            eval_env_fns = [lambda: dmc2gym.make(domain_name='quadruped', task_name='fetch', seed=args.seed + 1) for _ in range(N)]
+            eval_env_fns = [lambda: dmc2gym.make(domain_name=args.domain, task_name=args.task, seed=args.seed + 1) for _ in range(N)]
         else:
             eval_env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
         eval_env = SubprocVecEnv(eval_env_fns)
