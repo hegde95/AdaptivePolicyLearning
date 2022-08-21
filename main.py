@@ -17,7 +17,7 @@ from configs.config_helper import get_args, override_config
 import dmc2gym
 
 def evaluate(N, eval_env, agent):
-    avg_reward = 0.
+    avg_reward = np.zeros(N)
     episodes = 10
     for _  in range(episodes):
         state = eval_env.reset()
@@ -26,7 +26,8 @@ def evaluate(N, eval_env, agent):
         while not done.any():
             action = agent.select_action(state, evaluate=True)
             next_state, reward, done, _ = eval_env.step(action)
-            episode_reward += reward
+            # episode_reward += reward
+            np.add(episode_reward, reward, out=episode_reward, casting="unsafe")
             state = next_state
         avg_reward += episode_reward
     avg_reward /= episodes
