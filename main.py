@@ -21,7 +21,7 @@ def evaluate(N, eval_env, agent):
     episodes = 10
     for _  in range(episodes):
         state = eval_env.reset()
-        episode_reward = 0
+        episode_reward = np.zeros(N)
         done = np.array([False for _ in range(N)])
         while not done.any():
             action = agent.select_action(state, evaluate=True)
