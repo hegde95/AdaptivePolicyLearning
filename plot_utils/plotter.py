@@ -311,6 +311,8 @@ def main(config):
         num_inputs = eval_envs.observation_space.shape[0]
         for ckp_file in new_files:
             print(f"Evaluating {ckp_file}")
+            # sleep for a bit to make sure the ckpt is saved
+            time.sleep(10)
             epoch_num = int(ckp_file.split("/")[-1].split(".")[0].split("_")[2])
 
             actor = hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), device=device)
@@ -341,8 +343,8 @@ def main(config):
 
             list_of_ckpts_seen.append(ckp_file)
 
-        time.sleep(1)
-        print("Done")
+        # time.sleep(1)
+        # print("Done")
 
 
 if __name__ == "__main__":
