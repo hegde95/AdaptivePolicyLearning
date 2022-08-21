@@ -1,5 +1,19 @@
 from copy import copy, deepcopy
 import os, json
+import argparse
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str) and v.lower() in ('true', ):
+        return True
+    elif isinstance(v, str) and v.lower() in ('false', ):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected')
+
+
 
 def get_args(parser):
     # general args
@@ -7,15 +21,15 @@ def get_args(parser):
                         help='Mujoco Gym environment (default: HalfCheetah-v2)')
     parser.add_argument('--seed', type=int,  metavar='N',
                         help='random seed (default: 123456)')
-    parser.add_argument('--eval', type=bool, 
+    parser.add_argument('--eval', type=str2bool, 
                         help='Evaluates a policy a policy every 10 episode (default: True)')
     parser.add_argument('--num_steps', type=int,  metavar='N',
                         help='maximum number of steps (default: 3000000)')
-    parser.add_argument('--cuda', type = bool,
+    parser.add_argument('--cuda', type = str2bool,
                         help='run on CUDA (default: False)')
     parser.add_argument('--cuda_device', type=int, 
                     help="sets the cuda device to run experiments on")
-    parser.add_argument('--debug', type = bool,
+    parser.add_argument('--debug', type = str2bool,
                         help='Will run in debug. (default: False')  
 
     # sac args
@@ -30,13 +44,13 @@ def get_args(parser):
     parser.add_argument('--alpha', type=float, metavar='G',
                         help='Temperature parameter α determines the relative importance of the entropy\
                                 term against the reward (default: 0.2)')
-    parser.add_argument('--automatic_entropy_tuning', type=bool, metavar='G',
+    parser.add_argument('--automatic_entropy_tuning', type=str2bool, metavar='G',
                         help='Automaically adjust α (default: False)')
     parser.add_argument('--batch_size', type=int, metavar='N',
                         help='batch size (default: 256)')
     parser.add_argument('--hidden_size', type=int, metavar='N',
                         help='hidden size (default: 256)')
-    parser.add_argument('--taper', type = bool,
+    parser.add_argument('--taper', type = str2bool,
                         help='Taper the model shape (default: False)')
     parser.add_argument('--start_steps', type=int, metavar='N',
                         help='Steps sampling random actions (default: 10000)')
@@ -50,23 +64,23 @@ def get_args(parser):
                     help='hidden size (default: 8)')    
     parser.add_argument('--updates_per_step', type=int, metavar='N',
                         help='model updates per simulator step (default: 8)')
-    parser.add_argument('--hyper', type = bool,
+    parser.add_argument('--hyper', type = str2bool,
                         help='run with a hyper network (default: False)') 
-    parser.add_argument('--parallel', type = bool,
+    parser.add_argument('--parallel', type = str2bool,
                         help='run with an ensemble of networks (default: False)')
-    parser.add_argument('--condition_q', type = bool,
+    parser.add_argument('--condition_q', type = str2bool,
                         help='condition the q network with the architecture (default: False)')   
     parser.add_argument('--steps_per_arc', type=int, metavar='N',
                         help='steps to run between architecture samples (default: 50)')
-    parser.add_argument('--search', type = bool,
+    parser.add_argument('--search', type = str2bool,
                         help = 'search for the best architecture (default: False)')
 
     # logging args 
-    parser.add_argument('--wandb', type = bool,
+    parser.add_argument('--wandb', type = str2bool,
                         help='Log to wandb. (default: False')  
     parser.add_argument('--wandb-tag', type=str,
                         help='Use a custom tag for wandb. (default: "")')                        
-    parser.add_argument('--save_model', type = bool,
+    parser.add_argument('--save_model', type = str2bool,
                     help="save the model after each episode")
     parser.add_argument('--load_run', type=str,
                         help='Load a run from latest checkpoint')
@@ -74,7 +88,7 @@ def get_args(parser):
                         help='Base directory for the experiment (default: runs)')
 
     # dm control args
-    parser.add_argument('--dm_control', type = bool,
+    parser.add_argument('--dm_control', type = str2bool,
                         help='run with dm control (default: False)')
     parser.add_argument('--domain', type=str,
                         help='domain to run dm control on (default: quadruped)')
