@@ -67,15 +67,26 @@ def main(config):
         2960000,
     ] 
 
-    reward_bars = {"row_max":1, "row_99_percent":0.99, "row_90_percent":0.9, "row_80_percent":0.8, "row_70_percent":0.7, "row_60_percent":0.6, "row_50_percent":0.5, "row_40_percent":0.4, "row_30_percent":0.3, "row_20_percent":0.2, "row_10_percent":0.1}
+    reward_bars = {"row_max":1, 
+                # "row_99_percent":0.99, 
+                "row_90_percent":0.9, 
+                "row_80_percent":0.8, 
+                # "row_70_percent":0.7, 
+                "row_60_percent":0.6, 
+                # "row_50_percent":0.5, 
+                # "row_40_percent":0.4, 
+                # "row_30_percent":0.3, 
+                # "row_20_percent":0.2, 
+                # "row_10_percent":0.1
+                }
 
     plot_bars = {"row_max":"max", 
-                "row_99_percent":"99%", 
-                "row_90_percent":"0.9%", 
-                "row_80_percent":"0.8%", 
-                "row_60_percent":"0.6%", 
-                "row_40_percent":"0.4%", 
-                "row_20_percent":"0.2%", 
+                # "row_99_percent":"99%", 
+                "row_90_percent":"90-95%", 
+                "row_80_percent":"80-85%", 
+                "row_60_percent":"60-65%", 
+                # "row_40_percent":"0.4%", 
+                # "row_20_percent":"0.2%", 
                 }
 
     REWARD_MIN_MAX = False
@@ -85,12 +96,15 @@ def main(config):
 
     param_results_dict = { epoch: {seed: [] for seed in list_of_seeds} for epoch in list_of_epochs}
 
+    capacity_results_dict = { epoch: {seed: [] for seed in list_of_seeds} for epoch in list_of_epochs}
+
     for path_to_model_dicts, seed in zip(list_of_path_to_model_dicts, list_of_seeds):
         list_of_model_dicts = os.listdir(path_to_model_dicts)
         list_of_model_dicts.sort(key = lambda x:int(x.split("dict")[1].split(".")[0]))
 
         tmp_rewards_dict = {}
         tmp_params_dict = {}
+        tmp_capacity_dict = {}
         for model_dict in list_of_model_dicts:
             epoch = int(model_dict.split("dict")[1].split(".")[0])
             
@@ -108,17 +122,34 @@ def main(config):
             # create a normalized reward column
             df['norm_reward'] = (df['reward'] - df['reward'].min()) / (df['reward'].max() - df['reward'].min())  
             tmp_rewards_dict[epoch] = {}
-            tmp_params_dict[epoch] = {}  
+            tmp_params_dict[epoch] = {} 
+            tmp_capacity_dict[epoch] = {} 
             
           
             for bar_key in reward_bars.keys():
+                # if bar_key == 'row_max':
                 high_performing_archs = df[df.norm_reward >= reward_bars[bar_key]*df.norm_reward.max()]
+                # else:
+                #     high_performing_archs =  df[(df.norm_reward >= reward_bars[bar_key]*df.norm_reward.max()) & (df.norm_reward <= ((reward_bars[bar_key] + 0.05)*df.norm_reward.max()))]
+
+                # high_performing_archs = high_performing_archs[high_performing_archs.reward == high_performing_archs.reward.min()]
+
+                # To atleast get this much reward:
+                smallest_reward = min(high_performing_archs.reward) 
+                # we need atleast this many parameters
                 smallest_param = min(high_performing_archs.params)
+
+                # find smallest model that at least achieves smallest_reward
                 tmp = high_performing_archs[high_performing_archs.params == smallest_param]
-                tmp = tmp[tmp.capacity == tmp.capacity.max()]                
+
+                # among two model that have same number of models,
+                # choose the one with higher reward
+                # tmp = tmp[tmp.capacity == tmp.capacity.max()]                
                 tmp = tmp[tmp.norm_reward == tmp.norm_reward.max()]
+
                 tmp_rewards_dict[epoch][bar_key] = tmp.reward.item()
                 tmp_params_dict[epoch][bar_key] = tmp.params.item()
+                tmp_capacity_dict[epoch][bar_key] = tmp.capacity.item()
 
 
 
@@ -132,28 +163,38 @@ def main(config):
             # get the values for the nearest epochs
             smaller_epoch_param = tmp_params_dict[smaller_epoch]
             greater_epoch_param = tmp_params_dict[greater_epoch]
+            # get the values for the nearest epochs
+            smaller_epoch_capacity = tmp_capacity_dict[smaller_epoch]
+            greater_epoch_capacity = tmp_capacity_dict[greater_epoch]
+            
 
             if smaller_epoch == greater_epoch:
                 reward_results_dict[epoch][seed] = smaller_epoch_reward
                 param_results_dict[epoch][seed] = smaller_epoch_param
+                capacity_results_dict[epoch][seed] = smaller_epoch_capacity
             else:
                 # interpolate the values for the nearest epochs
                 reward_results_dict[epoch][seed] = {key:linear_interpolation(epoch, smaller_epoch, greater_epoch, smaller_epoch_reward[key], greater_epoch_reward[key]) for key in reward_bars.keys()}
 
                 param_results_dict[epoch][seed] = {key:linear_interpolation(epoch, smaller_epoch, greater_epoch, smaller_epoch_param[key], greater_epoch_param[key]) for key in reward_bars.keys()}
 
+                capacity_results_dict[epoch][seed] = {key:linear_interpolation(epoch, smaller_epoch, greater_epoch, smaller_epoch_capacity[key], greater_epoch_capacity[key]) for key in reward_bars.keys()}
 
 
 
     # average and std across all seeds
     average_rewards_dict = {}
     average_params_dict = {}
+    average_capacity_dict = {}
     std_rewards_dict = {}
     std_params_dict = {}
+    std_capacity_dict = {}
     max_rewards_dict = {}
     min_rewards_dict = {}
+    min_capacity_dict = {}
     min_params_dict = {}
     max_params_dict = {}
+    max_capacity_dict = {}
     for epoch in list_of_epochs:
         average_rewards_dict[epoch] = {
             bar_key: np.mean([reward_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
@@ -161,27 +202,39 @@ def main(config):
         average_params_dict[epoch] = {
             bar_key: np.mean([param_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
+        average_capacity_dict[epoch] = {
+            bar_key: np.mean([capacity_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
+        }        
         std_rewards_dict[epoch] = {
             bar_key: np.std([reward_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
         std_params_dict[epoch] = {
             bar_key: np.std([param_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
+        std_capacity_dict[epoch] = {
+            bar_key: np.std([capacity_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
+        }        
         max_rewards_dict[epoch] = {
             bar_key: np.max([reward_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
+        max_params_dict[epoch] = {
+            bar_key: np.max([param_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
+        }
+        max_capacity_dict[epoch] = {
+            bar_key: np.max([capacity_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
+        }        
         min_rewards_dict[epoch] = {
             bar_key: np.min([reward_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
         min_params_dict[epoch] = {
             bar_key: np.min([param_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
         }
-        max_params_dict[epoch] = {
-            bar_key: np.max([param_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
-        }
+        min_capacity_dict[epoch] = {
+            bar_key: np.min([capacity_results_dict[epoch][seed][bar_key] for seed in list_of_seeds]) for bar_key in reward_bars.keys()
+        }        
 
     # subplot average and std rewards and params
-    fig, axs = plt.subplots(1,2, figsize=(25, 15))
+    fig, axs = plt.subplots(1,3, figsize=(30, 15))
 
     for plot_key in plot_bars.keys():
         axs[0].plot(list_of_epochs, [average_rewards_dict[epoch][plot_key] for epoch in list_of_epochs], label=plot_key)
@@ -209,14 +262,33 @@ def main(config):
         for plot_key in plot_bars.keys():
             axs[1].fill_between(list_of_epochs, [average_params_dict[epoch][plot_key] - std_params_dict[epoch][plot_key] for epoch in list_of_epochs], [average_params_dict[epoch][plot_key] + std_params_dict[epoch][plot_key] for epoch in list_of_epochs], alpha=0.2)
 
-
-
     # make y axis logarithmic
     axs[1].set_yscale("log")
 
     axs[1].set_xlabel("epoch")
     axs[1].set_ylabel("log param")
     axs[1].legend()
+
+
+
+    for plot_key in plot_bars.keys():
+        axs[2].plot(list_of_epochs, [average_capacity_dict[epoch][plot_key] for epoch in list_of_epochs], label=plot_key)
+
+
+    if PARAMS_MIN_MAX:
+        for plot_key in plot_bars.keys():
+            axs[2].fill_between(list_of_epochs, [min_capacity_dict[epoch][plot_key] for epoch in list_of_epochs], [max_capacity_dict[epoch][plot_key] for epoch in list_of_epochs], alpha=0.2)
+    else:
+        for plot_key in plot_bars.keys():
+            axs[2].fill_between(list_of_epochs, [average_capacity_dict[epoch][plot_key] - std_capacity_dict[epoch][plot_key] for epoch in list_of_epochs], [average_capacity_dict[epoch][plot_key] + std_capacity_dict[epoch][plot_key] for epoch in list_of_epochs], alpha=0.2)
+
+    # make y axis logarithmic
+    axs[2].set_yscale("log")
+
+    axs[2].set_xlabel("epoch")
+    axs[2].set_ylabel("log capacity")
+    axs[2].legend()
+
 
     os.makedirs(config.dest, exist_ok=True)
     fig.savefig(os.path.join(config.dest, f"{config.prefix}_average_rewards_and_params.png"))
