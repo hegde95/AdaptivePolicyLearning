@@ -157,24 +157,25 @@ class hyperActor(nn.Module):
         self.capacities = [get_capacity(self.list_of_arcs[index], self.obs_dim, self.act_dim) for index in self.sampled_indices]
         _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = self.sampled_shape_inds)
 
-    def set_graph(self, graph, size):
-        # graph has to be list of layer, eg [32,16,8]
+    def set_graph(self, graph):
+        # graph has to be list of list of layer, eg [[32,16,8],[4,128,4]]
+        size = len(graph)
         shape_inds = []
         self.current_model = []
         self.param_counts = []
         self.capacities = []
         for i in range(size):
             shape_ind = [torch.tensor(0).to(self.device)]
-            for j in range(len(graph)):
-                shape_ind.append(torch.tensor(graph[j]).type(torch.FloatTensor).to(self.device))
-                shape_ind.append(torch.tensor(graph[j]).type(torch.FloatTensor).to(self.device))
+            for j in range(len(graph[i])):
+                shape_ind.append(torch.tensor(graph[i][j]).type(torch.FloatTensor).to(self.device))
+                shape_ind.append(torch.tensor(graph[i][j]).type(torch.FloatTensor).to(self.device))
             shape_ind.append(torch.tensor((self.act_dim * 2)).to(self.device))
             shape_ind.append(torch.tensor((self.act_dim * 2)).to(self.device))
             shape_ind = torch.stack(shape_ind).view(-1,1)
             shape_inds.append(shape_ind)
-            self.current_model.append(MlpNetwork(fc_layers=graph, inp_dim = self.obs_dim, out_dim = 2 * self.act_dim))
-            self.param_counts.append(self.get_params(graph))
-            self.capacities.append(get_capacity(graph, self.obs_dim, self.act_dim))
+            self.current_model.append(MlpNetwork(fc_layers=graph[i], inp_dim = self.obs_dim, out_dim = 2 * self.act_dim))
+            self.param_counts.append(self.get_params(graph[i]))
+            self.capacities.append(get_capacity(graph[i], self.obs_dim, self.act_dim))
         self.sampled_shape_inds = torch.cat(shape_inds)
         _, embeddings = self.ghn(self.current_model, return_embeddings=True, shape_ind = self.sampled_shape_inds)
 
