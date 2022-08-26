@@ -31,8 +31,8 @@ class Agent:
         self.steps_per_arc = steps_per_arc
 
         if self.hyper:
-            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
-            self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
+            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 1, device=self.device, search="False").to(self.device)
+            self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 1, device=self.device, search="False").to(self.device)
         else:
             self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
             self.actor_target = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
@@ -61,8 +61,8 @@ class Agent:
 
     def switch_policy(self, state = None):
         self.actor.change_graph(state)
-        actor_graphs = [list(self.actor.list_of_arcs[i]) for i in self.actor.sampled_indices]
-        self.actor_target.set_graph(actor_graphs)
+        # actor_graphs = [list(self.actor.list_of_arcs[i]) for i in self.actor.sampled_indices]
+        # self.actor_target.set_graph(actor_graphs)
         self.switch_counter = 0
 
 
@@ -156,11 +156,14 @@ class Agent:
             # else:
             #     self.actor.change_graph(repeat_sample = True)
 
-        a = self.actor(inputs)
-        actor_loss = -self.critic(inputs, a[0] if self.hyper else a).mean()
-        actor_loss += (a[0] if self.hyper else a).pow(2).mean()
+        if self.hyper:
+            a = self.actor(inputs)[0]
+        else:
+            a = self.actor(inputs)
+        actor_loss = -self.critic(inputs, a).mean()
+        actor_loss += (a).pow(2).mean()
 
-        actor_loss.backward()
+        actor_loss.backward(retain_graph=True)
         # self.sync_grads(self.actor)
         self.actor_optim.step()
 
@@ -195,6 +198,8 @@ class Agent:
     def update_networks(self):
         self.soft_update_networks(self.actor, self.actor_target, self.tau)
         self.soft_update_networks(self.critic, self.critic_target, self.tau)
+        # if self.hyper:
+        #     self.actor_target.change_graph(repeat_sample = True)
 
     def _update_normalizer(self, mini_batch):
         states, goals = self.memory.sample_for_normalization(mini_batch)

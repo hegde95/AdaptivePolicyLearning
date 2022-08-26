@@ -118,7 +118,9 @@ if __name__ == "__main__":
                 hyper=hyper)
                 
     if hyper:
-        agent.switch_policy()
+        # agent.switch_policy()
+        agent.actor.set_graph([[256,256,256]])
+        agent.actor_target.set_graph([[256,256,256]])
 
     t_success_rate = []
     total_ac_loss = []
@@ -217,6 +219,7 @@ if __name__ == "__main__":
                 f"Duration:{time.time() - start_time:.3f}| "
                 f"Actor_Loss:{actor_loss:.3f}| "
                 f"Critic_Loss:{critic_loss:.3f}| "
+                f"Epoch_Critic_Loss:{epoch_critic_loss:.3f}| "
                 f"Success rate:{success_rate:.3f}| "
                 f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
         # agent.save_weights()            
