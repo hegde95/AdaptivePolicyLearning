@@ -31,8 +31,8 @@ class Agent:
         self.steps_per_arc = steps_per_arc
 
         if self.hyper:
-            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 1, device=self.device, search="False").to(self.device)
-            self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 1, device=self.device, search="False").to(self.device)
+            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
+            self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
         else:
             self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
             self.actor_target = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
@@ -198,8 +198,8 @@ class Agent:
     def update_networks(self):
         self.soft_update_networks(self.actor, self.actor_target, self.tau)
         self.soft_update_networks(self.critic, self.critic_target, self.tau)
-        # if self.hyper:
-        #     self.actor_target.change_graph(repeat_sample = True)
+        if self.hyper:
+            self.actor_target.change_graph(repeat_sample = True)
 
     def _update_normalizer(self, mini_batch):
         states, goals = self.memory.sample_for_normalization(mini_batch)

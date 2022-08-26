@@ -79,7 +79,7 @@ if __name__ == "__main__":
     N = 8
 
     SEED = 123
-    hyper = False
+    hyper = True
 
     env_fns = [lambda: gym.make(ENV_NAME) for _ in range(N)]
     env = SubprocVecEnv(env_fns)
@@ -119,8 +119,8 @@ if __name__ == "__main__":
                 
     if hyper:
         # agent.switch_policy()
-        agent.actor.set_graph([[256,256,256]])
-        agent.actor_target.set_graph([[256,256,256]])
+        agent.actor.set_graph([[256,256,256] for _ in range(8)])
+        agent.actor_target.set_graph([[256,256,256] for _ in range(8)])
 
     t_success_rate = []
     total_ac_loss = []
