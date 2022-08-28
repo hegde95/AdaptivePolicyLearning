@@ -76,6 +76,8 @@ if __name__ == "__main__":
     tau = 0.05
     k_future = 4
 
+    cuda_device_number = 3
+
     N = 8
 
     SEED = 123
@@ -115,12 +117,14 @@ if __name__ == "__main__":
                 tau=tau,
                 k_future=k_future,
                 env=dc(dummy_env),
-                hyper=hyper)
+                hyper=hyper,
+                device_name=f"cuda:{cuda_device_number}"
+                )
                 
     if hyper:
         # agent.switch_policy()
         agent.actor.set_graph([[256,256,256] for _ in range(8)])
-        agent.actor_target.set_graph([[256,256,256] for _ in range(8)])
+        # agent.actor_target.set_graph([[256,256,256] for _ in range(8)])
 
     t_success_rate = []
     total_ac_loss = []
@@ -206,7 +210,9 @@ if __name__ == "__main__":
             epoch_actor_loss += cycle_actor_loss / num_updates
             epoch_critic_loss += cycle_critic_loss /num_updates
             agent.update_networks()
-
+        
+        # if hyper:
+        #     agent.actor.scheduler.step()
         ram = psutil.virtual_memory()
         success_rate, running_reward, episode_reward = eval_agent(eval_env, agent)
         total_ac_loss.append(epoch_actor_loss)
@@ -215,11 +221,13 @@ if __name__ == "__main__":
         print(f"Epoch:{epoch}| "
                 f"Running_reward:{running_reward[-1]:.3f}| "
                 f"EP_reward:{episode_reward:.3f}| "
-                f"Memory_length:{len(agent.memory)}| "
+                # f"Memory_length:{len(agent.memory)}| "
                 f"Duration:{time.time() - start_time:.3f}| "
-                f"Actor_Loss:{actor_loss:.3f}| "
-                f"Critic_Loss:{critic_loss:.3f}| "
-                f"Epoch_Critic_Loss:{epoch_critic_loss:.3f}| "
+                # f"Actor_Loss:{actor_loss:.3f}| "
+                # f"Critic_Loss:{critic_loss:.3f}| "
+                f"Tot_Actor_Loss:{epoch_actor_loss:.3f}| "
+                f"Tot_Critic_Loss:{epoch_critic_loss:.3f}| "
+                f"Actor_learning_rate:{agent.actor.scheduler.get_last_lr()[0] if hyper else actor_lr}| ",
                 f"Success rate:{success_rate:.3f}| "
                 f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
         # agent.save_weights()            

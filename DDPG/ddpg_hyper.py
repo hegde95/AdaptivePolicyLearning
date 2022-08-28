@@ -18,8 +18,10 @@ class Agent:
                  critic_lr=1e-3,
                  hyper = False,
                  steps_per_arc = 20,
-                 gamma=0.98):
-        self.device = device("cuda")
+                 gamma=0.98,
+                 device_name = "cuda",
+                 ):
+        self.device = device(device_name)
         self.n_states = n_states
         self.n_actions = n_actions
         self.n_goals = n_goals
@@ -32,10 +34,10 @@ class Agent:
 
         if self.hyper:
             self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
-            self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
+            # self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
         else:
             self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
-            self.actor_target = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
+            # self.actor_target = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
 
         self.critic = Critic(self.n_states, action_size=self.action_size, n_goals=self.n_goals).to(self.device)
         self.critic_target = Critic(self.n_states, action_size=self.action_size, n_goals=self.n_goals).to(self.device)
@@ -102,7 +104,7 @@ class Agent:
         self._update_normalizer(mini_batch)
 
     def init_target_networks(self):
-        self.hard_update_networks(self.actor, self.actor_target)
+        # self.hard_update_networks(self.actor, self.actor_target)
         self.hard_update_networks(self.critic, self.critic_target)
 
     @staticmethod
@@ -130,9 +132,9 @@ class Agent:
 
         with torch.no_grad():
             if self.hyper:
-                target_q = self.critic_target(next_inputs, self.actor_target(next_inputs)[0])
+                target_q = self.critic_target(next_inputs, self.actor(next_inputs)[0])
             else:
-                target_q = self.critic_target(next_inputs, self.actor_target(next_inputs))
+                target_q = self.critic_target(next_inputs, self.actor(next_inputs))
             target_returns = rewards + self.gamma * target_q.detach()
             target_returns = torch.clamp(target_returns, -1 / (1 - self.gamma), 0)
 
@@ -196,10 +198,10 @@ class Agent:
         # self.critic.eval()
 
     def update_networks(self):
-        self.soft_update_networks(self.actor, self.actor_target, self.tau)
+        # self.soft_update_networks(self.actor, self.actor_target, self.tau)
         self.soft_update_networks(self.critic, self.critic_target, self.tau)
-        if self.hyper:
-            self.actor_target.change_graph(repeat_sample = True)
+        # if self.hyper:
+        #     self.actor_target.change_graph(repeat_sample = True)
 
     def _update_normalizer(self, mini_batch):
         states, goals = self.memory.sample_for_normalization(mini_batch)

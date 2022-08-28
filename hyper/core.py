@@ -132,7 +132,8 @@ class hyperActor(nn.Module):
                 }
                 ])
 
-        self.scheduler = MultiStepLR(self.optimizer, milestones='200,250', gamma=0.1)
+        self.scheduler = MultiStepLR(self.optimizer, milestones=[200,250], gamma=0.1)
+        # self.scheduler = MultiStepLR(self.optimizer, milestones=[100,150], gamma=0.1)
         # self.change_graph()
 
         self.log_std_logits = nn.Parameter(
