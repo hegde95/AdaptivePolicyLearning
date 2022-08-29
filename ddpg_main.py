@@ -64,10 +64,10 @@ if __name__ == "__main__":
     INTRO = False
     Train = True
     Play_FLAG = False
-    MAX_EPOCHS = 500
+    MAX_EPOCHS = 5000
     MAX_CYCLES = 50
     num_updates = 40
-    MAX_EPISODES = 1
+    MAX_EPISODES = 8
     memory_size = 7e+5 // 50
     batch_size = 256
     actor_lr = 1e-3
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     tau = 0.05
     k_future = 4
 
-    cuda_device_number = 3
+    cuda_device_number = 1
 
     N = 8
 
@@ -121,9 +121,9 @@ if __name__ == "__main__":
                 device_name=f"cuda:{cuda_device_number}"
                 )
                 
-    if hyper:
+    # if hyper:
         # agent.switch_policy()
-        agent.actor.set_graph([[256,256,256] for _ in range(8)])
+        # agent.actor.set_graph([[256,256,256] for _ in range(8)])
         # agent.actor_target.set_graph([[256,256,256] for _ in range(8)])
 
     t_success_rate = []
@@ -150,8 +150,8 @@ if __name__ == "__main__":
                 state = env_dict["observation"]
                 achieved_goal = env_dict["achieved_goal"]
                 desired_goal = env_dict["desired_goal"]
-                # if hyper:
-                #     agent.switch_policy()
+                if hyper:
+                    agent.switch_policy()
                 # while np.linalg.norm(achieved_goal - desired_goal) <= 0.05:
                 #     env_dict = env.reset()
                 #     state = env_dict["observation"]
@@ -211,8 +211,8 @@ if __name__ == "__main__":
             epoch_critic_loss += cycle_critic_loss /num_updates
             agent.update_networks()
         
-        # if hyper:
-        #     agent.actor.scheduler.step()
+        if hyper:
+            agent.actor.scheduler.step()
         ram = psutil.virtual_memory()
         success_rate, running_reward, episode_reward = eval_agent(eval_env, agent)
         total_ac_loss.append(epoch_actor_loss)

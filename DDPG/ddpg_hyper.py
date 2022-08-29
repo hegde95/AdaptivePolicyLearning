@@ -17,7 +17,7 @@ class Agent:
                  actor_lr=1e-3,
                  critic_lr=1e-3,
                  hyper = False,
-                 steps_per_arc = 20,
+                 steps_per_arc = 4,
                  gamma=0.98,
                  device_name = "cuda",
                  ):
@@ -150,13 +150,13 @@ class Agent:
 
         self.actor_optim.zero_grad()
         if self.hyper:
-            self.actor.change_graph(repeat_sample = True)
-            # self.switch_counter += 1
-            # if self.switch_counter % self.steps_per_arc == 0:
-            #     self.actor.change_graph(repeat_sample = False)
-            #     self.switch_counter = 0
-            # else:
-            #     self.actor.change_graph(repeat_sample = True)
+            # self.actor.change_graph(repeat_sample = True)
+            self.switch_counter += 1
+            if self.switch_counter % self.steps_per_arc == 0:
+                self.actor.change_graph(repeat_sample = False)
+                self.switch_counter = 0
+            else:
+                self.actor.change_graph(repeat_sample = True)
 
         if self.hyper:
             a = self.actor(inputs)[0]
