@@ -6,7 +6,7 @@ from DDPG.memory import Memory
 from torch.optim import Adam
 from DDPG.normalizer import Normalizer
 from hyper.core import hyperActor
-
+import os
 
 class Agent:
     def __init__(self, n_states, n_actions, n_goals, action_bounds, capacity, env,
@@ -33,7 +33,7 @@ class Agent:
         self.steps_per_arc = steps_per_arc
 
         if self.hyper:
-            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
+            self.actor = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search=False).to(self.device)
             # self.actor_target = hyperActor(self.n_actions, self.n_states[0] + self.n_goals, self.action_bounds[1], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = 8, device=self.device, search="False").to(self.device)
         else:
             self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
@@ -172,26 +172,46 @@ class Agent:
 
         return actor_loss.item(), critic_loss.item()
 
-    def save_weights(self):
-        torch.save({"actor_state_dict": self.actor.state_dict(),
+    # def save_weights(self):
+    #     torch.save({"actor_state_dict": self.actor.state_dict(),
+    #                 "state_normalizer_mean": self.state_normalizer.mean,
+    #                 "state_normalizer_std": self.state_normalizer.std,
+    #                 "goal_normalizer_mean": self.goal_normalizer.mean,
+    #                 "goal_normalizer_std": self.goal_normalizer.std}, "FetchPickAndPlace.pth")
+
+    # Save model parameters
+    def save_checkpoint(self, run_name, suffix="", ckpt_path=None, base_dir = "runs", sub_folder = "checkpoints", verbose=True):
+        if not os.path.exists(f"{base_dir}/{run_name}/{sub_folder}/"):
+            os.makedirs(f"{base_dir}/{run_name}/{sub_folder}/")
+        if ckpt_path is None:
+            ckpt_path = f"{base_dir}/{run_name}/{sub_folder}/sac_checkpoint_{suffix}"
+            
+        if verbose:
+            print('Saving models to {}'.format(ckpt_path))
+        torch.save({'policy_state_dict': self.actor.state_dict(),
+                    'critic_state_dict': self.critic.state_dict(),
+                    'critic_target_state_dict': self.critic_target.state_dict(),
+                    'critic_optimizer_state_dict': self.critic_optim.state_dict(),
+                    'policy_optimizer_state_dict': self.actor_optim.state_dict(),
                     "state_normalizer_mean": self.state_normalizer.mean,
                     "state_normalizer_std": self.state_normalizer.std,
                     "goal_normalizer_mean": self.goal_normalizer.mean,
-                    "goal_normalizer_std": self.goal_normalizer.std}, "FetchPickAndPlace.pth")
+                    "goal_normalizer_std": self.goal_normalizer.std}, ckpt_path)
 
-    def load_weights(self):
 
-        checkpoint = torch.load("FetchPickAndPlace.pth")
-        actor_state_dict = checkpoint["actor_state_dict"]
-        self.actor.load_state_dict(actor_state_dict)
-        state_normalizer_mean = checkpoint["state_normalizer_mean"]
-        self.state_normalizer.mean = state_normalizer_mean
-        state_normalizer_std = checkpoint["state_normalizer_std"]
-        self.state_normalizer.std = state_normalizer_std
-        goal_normalizer_mean = checkpoint["goal_normalizer_mean"]
-        self.goal_normalizer.mean = goal_normalizer_mean
-        goal_normalizer_std = checkpoint["goal_normalizer_std"]
-        self.goal_normalizer.std = goal_normalizer_std
+    # def load_weights(self):
+
+    #     checkpoint = torch.load("FetchPickAndPlace.pth")
+    #     actor_state_dict = checkpoint["actor_state_dict"]
+    #     self.actor.load_state_dict(actor_state_dict)
+    #     state_normalizer_mean = checkpoint["state_normalizer_mean"]
+    #     self.state_normalizer.mean = state_normalizer_mean
+    #     state_normalizer_std = checkpoint["state_normalizer_std"]
+    #     self.state_normalizer.std = state_normalizer_std
+    #     goal_normalizer_mean = checkpoint["goal_normalizer_mean"]
+    #     self.goal_normalizer.mean = goal_normalizer_mean
+    #     goal_normalizer_std = checkpoint["goal_normalizer_std"]
+    #     self.goal_normalizer.std = goal_normalizer_std
 
     def set_to_eval_mode(self):
         self.actor.eval()
@@ -210,3 +230,45 @@ class Agent:
         self.goal_normalizer.update(goals)
         self.state_normalizer.recompute_stats()
         self.goal_normalizer.recompute_stats()
+
+    # Load model parameters
+    def load_checkpoint(self, ckpt_path, evaluate=False, add_search_params = False, device = "cpu"):
+        print('Loading models from {}'.format(ckpt_path))
+        checkpoint = torch.load(ckpt_path, map_location=device)
+
+        if add_search_params:
+            checkpoint['policy_state_dict']['conditional_arc_dist.0.weight'] = self.policy.conditional_arc_dist[0].weight.data
+            checkpoint['policy_state_dict']['conditional_arc_dist.0.bias'] = self.policy.conditional_arc_dist[0].bias.data
+
+            checkpoint['policy_state_dict']['conditional_arc_dist.2.weight'] = self.policy.conditional_arc_dist[2].weight.data
+            checkpoint['policy_state_dict']['conditional_arc_dist.2.bias'] = self.policy.conditional_arc_dist[2].bias.data
+        else:
+            checkpoint['policy_state_dict'].pop('conditional_arc_dist.0.weight', None)
+            checkpoint['policy_state_dict'].pop('conditional_arc_dist.0.bias', None)
+            checkpoint['policy_state_dict'].pop('conditional_arc_dist.2.weight', None)
+            checkpoint['policy_state_dict'].pop('conditional_arc_dist.2.bias', None)
+
+
+        self.actor.load_state_dict(checkpoint['policy_state_dict'])
+        self.critic.load_state_dict(checkpoint['critic_state_dict'])
+        self.critic_target.load_state_dict(checkpoint['critic_target_state_dict'])
+        self.critic_optim.load_state_dict(checkpoint['critic_optimizer_state_dict'])
+        self.actor_optim.load_state_dict(checkpoint['policy_optimizer_state_dict'])
+
+        state_normalizer_mean = checkpoint["state_normalizer_mean"]
+        self.state_normalizer.mean = state_normalizer_mean
+        state_normalizer_std = checkpoint["state_normalizer_std"]
+        self.state_normalizer.std = state_normalizer_std
+        goal_normalizer_mean = checkpoint["goal_normalizer_mean"]
+        self.goal_normalizer.mean = goal_normalizer_mean
+        goal_normalizer_std = checkpoint["goal_normalizer_std"]
+        self.goal_normalizer.std = goal_normalizer_std
+
+        if evaluate:
+            self.actor.eval()
+            self.critic.eval()
+            self.critic_target.eval()
+        else:
+            self.actor.train()
+            self.critic.train()
+            self.critic_target.train()

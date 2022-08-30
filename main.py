@@ -13,7 +13,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 import wandb
 import random
 import os, json
-from configs.config_helper import get_args, override_config
+from configs.config_helper import get_sac_args, override_config
 import dmc2gym
 
 def evaluate(N, eval_env, agent):
@@ -312,7 +312,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
-    parser = get_args(parser)
+    parser = get_sac_args(parser)
     args = parser.parse_args()
     args = override_config(args)
     main(args)    

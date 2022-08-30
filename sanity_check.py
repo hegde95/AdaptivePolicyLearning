@@ -1,4 +1,4 @@
-from configs.config_helper import get_args, override_config
+from configs.config_helper import get_sac_args, override_config
 import argparse
 from SAC.sac import SAC_Agent
 from stable_baselines3.common.vec_env import SubprocVecEnv
@@ -114,7 +114,7 @@ def get_apl_args(parser):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='PyTorch Adaptive Policy Learning Args')
-    parser = get_args(parser)
+    parser = get_sac_args(parser)
     parser = get_apl_args(parser)
     args = parser.parse_args()
     args = override_config(args)

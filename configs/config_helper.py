@@ -14,8 +14,8 @@ def str2bool(v):
         raise argparse.ArgumentTypeError('Boolean value expected')
 
 
-
-def get_args(parser):
+# SAC
+def get_sac_args(parser):
     # general args
     parser.add_argument('--env-name',
                         help='Mujoco Gym environment (default: HalfCheetah-v2)')
@@ -101,7 +101,7 @@ def get_args(parser):
 
     return parser
 
-def set_arg_defaults(config):
+def set_sac_arg_defaults(config):
     config.env_name = config.env_name if config.env_name else "HalfCheetah-v2"
     config.seed = config.seed if config.seed else 123456
     config.eval = config.eval if config.eval else True
@@ -139,12 +139,7 @@ def set_arg_defaults(config):
     
     return config
 
-    
-
-
-
-
-def override_config(args):
+def override_config(args, algo = "sac"):
     orig_args = deepcopy(args)
     
     if args.config != "":
@@ -162,7 +157,10 @@ def override_config(args):
     else:
         # set default configs
         args.config = "default"
-        args = set_arg_defaults(args)
+        if algo == "sac":
+            args = set_sac_arg_defaults(args)
+        elif algo == "ddpg":
+            args = set_ddpg_arg_defaults(args)
 
         # override config with command line args
         for key, value in vars(orig_args).items():
@@ -170,3 +168,104 @@ def override_config(args):
                 setattr(args, key, value)
 
     return args
+
+
+# DDPG
+def get_ddpg_args(parser):
+    # general args
+    parser.add_argument('--env-name',
+                        help='Mujoco Gym environment (default: FetchPickAndPlace-v1)')
+    parser.add_argument('--seed', type=int,  metavar='N',
+                        help='random seed (default: 123456)')
+    parser.add_argument('--eval', type=str2bool, 
+                        help='Evaluates a policy a policy every 10 episode (default: True)')
+    parser.add_argument('--num_steps', type=int,  metavar='N',
+                        help='maximum number of steps (default: 3000000)')
+    parser.add_argument('--cuda', type = str2bool,
+                        help='run on CUDA (default: False)')
+    parser.add_argument('--cuda_device', type=int, 
+                    help="sets the cuda device to run experiments on")
+    parser.add_argument('--debug', type = str2bool,
+                        help='Will run in debug. (default: False')  
+
+    # ddpg args
+    parser.add_argument('--gamma', type=float, metavar='G',
+                        help='discount factor for reward (default: 0.98)')
+    parser.add_argument('--tau', type=float, metavar='G',
+                        help='target smoothing coefficient(τ) (default: 0.05)')
+    parser.add_argument('--lr', type=float, metavar='G',
+                        help='learning rate (default: 0.001)')
+    parser.add_argument('--batch_size', type=int, metavar='N',
+                        help='batch size (default: 256)')
+    parser.add_argument('--memory_size', type=int, metavar='N',
+                        help='size of replay buffer (default: 7e+5 // 50)')
+    parser.add_argument('--k_future', type=int, metavar='N',
+                        help='HER hyper param (default: 4)')
+
+    # hyper args
+    parser.add_argument('--meta_batch_size', type=int, metavar='N',
+                    help='hidden size (default: 8)')    
+    parser.add_argument('--hyper', type = str2bool,
+                        help='run with a hyper network (default: False)') 
+    parser.add_argument('--steps_per_arc', type=int, metavar='N',
+                        help='steps to run between architecture samples (default: 4)')
+
+
+
+    # logging args 
+    parser.add_argument('--wandb', type = str2bool,
+                        help='Log to wandb. (default: False')  
+    parser.add_argument('--wandb-tag', type=str,
+                        help='Use a custom tag for wandb. (default: "")')                        
+    parser.add_argument('--save_model', type = str2bool,
+                    help="save the model after each episode")
+    parser.add_argument('--load_run', type=str,
+                        help='Load a run from latest checkpoint')
+    parser.add_argument('--base_dir', type=str,
+                        help='Base directory for the experiment (default: runs)')
+
+    # dm control args
+    parser.add_argument('--dm_control', type = str2bool,
+                        help='run with dm control (default: False)')
+    parser.add_argument('--domain', type=str,
+                        help='domain to run dm control on (default: quadruped)')
+    parser.add_argument('--task', type=str,
+                        help='task to run dm control on (default: fetch)')
+
+
+    parser.add_argument('--config', type=str, default="",
+                        help = "Name of the config file to load, stored in the configs folder")
+
+    return parser
+
+def set_ddpg_arg_defaults(config):
+    config.env_name = config.env_name if config.env_name else "FetchPickAndPlace-v1"
+    config.seed = config.seed if config.seed else 123456
+    config.eval = config.eval if config.eval else True
+    config.num_steps = config.num_steps if config.num_steps else 30000000
+    config.cuda = config.cuda if config.cuda else False
+    config.cuda_device = config.cuda_device if config.cuda_device else 0
+    config.debug = config.debug if config.debug else False
+
+    config.gamma = config.gamma if config.gamma else 0.98
+    config.tau = config.tau if config.tau else 0.05
+    config.lr = config.lr if config.lr else 0.001
+    config.batch_size = config.batch_size if config.batch_size else 256
+    config.memory_size = config.memory_size if config.memory_size else 14000
+    config.k_future = config.k_future if config.k_future else 4
+
+    config.meta_batch_size = config.meta_batch_size if config.meta_batch_size else 8
+    config.hyper = config.hyper if config.hyper else False
+    config.steps_per_arc = config.steps_per_arc if config.steps_per_arc else 4
+
+    config.wandb = config.wandb if config.wandb else False
+    config.wandb_tag = config.wandb_tag if config.wandb_tag else ""
+    config.save_model = config.save_model if config.save_model else False
+    config.load_run = config.load_run if config.load_run else None
+    config.base_dir = config.base_dir if config.base_dir else "runs"
+    
+    config.dm_control = config.dm_control if config.dm_control else False
+    config.domain = config.domain if config.domain else "quadruped"
+    config.task = config.task if config.task else "fetch"
+    
+    return config

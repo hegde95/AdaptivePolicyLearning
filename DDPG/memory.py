@@ -1,7 +1,6 @@
 import numpy as np
 from copy import deepcopy as dc
-import random
-
+import os, pickle
 
 class Memory:
     def __init__(self, capacity, k_future, env):
@@ -91,3 +90,23 @@ class Memory:
         desired_goals[her_indices] = future_ag
 
         return self.clip_obs(states), self.clip_obs(desired_goals)
+
+    def save_buffer(self, env_name, suffix="", save_path=None, verbose=False):
+
+        if save_path is None:
+            if not os.path.exists('checkpoints/'):
+                os.makedirs('checkpoints/')
+            save_path = "checkpoints/sac_buffer_{}_{}".format(env_name, suffix)
+        
+        if verbose:
+            print('Saving buffer to {}'.format(save_path))
+
+        with open(save_path, 'wb') as f:
+            pickle.dump(self.memory, f)
+
+
+    def load_buffer(self, save_path):
+        print('Loading buffer from {}'.format(save_path))
+
+        with open(save_path, "rb") as f:
+            self.buffer = pickle.load(f)
