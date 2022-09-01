@@ -21,7 +21,8 @@ import time
 def evaluate(env_, agent_, N):
     total_success_rate = []
     running_r = []
-    agent_.actor.set_graph([[4,4,4],[8,8,8],[16,16,16],[32,32,32],[64,64,64],[128,128,128],[256,256,256],[512,512,512]])
+    if agent_.hyper:
+        agent_.actor.set_graph([[4,4,4],[8,8,8],[16,16,16],[32,32,32],[64,64,64],[128,128,128],[256,256,256],[512,512,512]])
     for ep in range(8):
         per_success_rate = []
         env_dictionary = env_.reset()
