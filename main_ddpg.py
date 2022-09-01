@@ -219,8 +219,8 @@ def main(args):
     episodes_st = 0
     MAX_EPOCHS = 5000
     MAX_CYCLES = 50
-    MAX_EPISODES = 1 #8
-    num_updates = 10 #20 #40
+    MAX_EPISODES = 8
+    num_updates = 40
     t_success_rate, total_ac_loss, total_cr_loss = [], [], []
     epochs_run = 0
 
