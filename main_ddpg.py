@@ -142,8 +142,6 @@ def main(args):
         tags = []
         if args.hyper:
             tags.append("hyper")
-        elif args.parallel:
-            tags.append("parallel")
         else:
             tags.append("vanilla")
         
