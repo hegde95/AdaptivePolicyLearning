@@ -209,6 +209,7 @@ def main(args):
                 k_future=args.k_future,
                 env=dc(dummy_env),
                 hyper=args.hyper,
+                steps_per_arc = args.steps_per_arc,
                 device_name=f"cuda:{args.cuda_device}"
                 )
 
