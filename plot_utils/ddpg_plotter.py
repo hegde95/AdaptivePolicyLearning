@@ -22,6 +22,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv
 from hyper.core import hyperActor
 from hyper.ghn_modules import MLP_GHN, MlpNetwork
 from DDPG.normalizer import Normalizer
+from configs.config_helper import str2bool
 
 
 def get_config():
@@ -30,16 +31,17 @@ def get_config():
     parser.add_argument("--hours", type=int, default=24, help="Hours to run the plotter script for")
     parser.add_argument("--run_dir", type=str, default="runs", help="Path to the base of all runs")
     parser.add_argument("--seed", type=int, default=1, help="Seed, default: 1")
+    parser.add_argument("--num_evals", type=int, default=20, help="Number of evaluations to run per architecture, default: 20")
+    parser.add_argument("--overwrite", type=str2bool, default="False", help="Over write the existing plots/model_dicts, default: False")
     
     parser.add_argument("--path_to_ckpt", type=str, help="Path to the ckpt file")
 
-    parser.add_argument('--rand', action="store_true",
-                        help='run eval on random architectures')   
-
     parser.add_argument('--eval_every', type=int, default=1,
                         help='run eval every n epochs')
+    parser.add_argument('--rand', type=str2bool, default="False",
+                        help='run eval on random architectures')   
 
-    parser.add_argument('--cuda', action="store_true",
+    parser.add_argument('--cuda', type=str2bool, default="False",
                         help='run on CUDA (default: False)')                                            
     parser.add_argument('--cuda_device', type=int, default=0,
                     help="sets the cuda device to run experiments on")
@@ -62,6 +64,7 @@ def get_capacity (net, inp, out):
 
 def evaluate_for_single_policy(env, model, state_normalizer, goal_normalizer, device = 'cpu'):
     success_vector = np.zeros(env.num_envs)
+    average_forward_pass_time = 0
     env_dictionary = env.reset()
     # # decorrelate the envs with random actions
     # for _ in range(5):
@@ -84,7 +87,11 @@ def evaluate_for_single_policy(env, model, state_normalizer, goal_normalizer, de
         g_ = goal_normalizer.normalize(g)
         sg_ = np.concatenate([s_, g_], axis=-1)
         sg_ = torch.from_numpy(sg_).float().to(device)
+        start_time = time.time()
         action = model(sg_)
+        end_time = time.time()
+        forward_pass_time = end_time - start_time
+        average_forward_pass_time += forward_pass_time
         action = action[:,:action.shape[-1]//2]
         action = action.detach().cpu().numpy()
         observation_new, reward, done, info = env.step(action)
@@ -95,7 +102,8 @@ def evaluate_for_single_policy(env, model, state_normalizer, goal_normalizer, de
         # rewards += reward
 
     success_rate = np.mean(success_vector) 
-    return success_rate
+    average_forward_pass_time /= 50
+    return success_rate, average_forward_pass_time
 
 def cal_prob(fc_layer,prob_dict):
     model_prob = 1
@@ -107,36 +115,36 @@ def cal_prob(fc_layer,prob_dict):
         model_prob *= layer_prob
     return model_prob
 
-def evaluate(env, ghn, model_dict, list_of_net_arch_eval): 
-    """
-    Makes an evaluation run with the current GHN
-    """
-    ghn.eval()
-    inp_dim = env.observation_space.shape[0]
-    out_dim = 2 *env.action_space.shape[0]
-    net_args = {
-        'fc_layers':[],
-        'inp_dim':inp_dim,
-        'out_dim':out_dim,
-    }      
-    hyper_reward = 0
-    for i,net_arch in tqdm.tqdm(enumerate(list_of_net_arch_eval)):
-        net_args['fc_layers'] = net_arch    
-        model = MlpNetwork(**net_args)
-        shape_ind = [[0]]
-        for layer in net_args['fc_layers']:
-            shape_ind.append([layer])
-            shape_ind.append([layer])
-        shape_ind.append([out_dim])
-        shape_ind.append([out_dim])    
-        shape_ind = torch.Tensor(shape_ind).to('cpu')          
-        ghn(model, shape_ind = shape_ind)  
-        reward_per_policy = evaluate_for_single_policy(env, model)
+# def evaluate(env, ghn, model_dict, list_of_net_arch_eval): 
+#     """
+#     Makes an evaluation run with the current GHN
+#     """
+#     ghn.eval()
+#     inp_dim = env.observation_space.shape[0]
+#     out_dim = 2 *env.action_space.shape[0]
+#     net_args = {
+#         'fc_layers':[],
+#         'inp_dim':inp_dim,
+#         'out_dim':out_dim,
+#     }      
+#     hyper_reward = 0
+#     for i,net_arch in tqdm.tqdm(enumerate(list_of_net_arch_eval)):
+#         net_args['fc_layers'] = net_arch    
+#         model = MlpNetwork(**net_args)
+#         shape_ind = [[0]]
+#         for layer in net_args['fc_layers']:
+#             shape_ind.append([layer])
+#             shape_ind.append([layer])
+#         shape_ind.append([out_dim])
+#         shape_ind.append([out_dim])    
+#         shape_ind = torch.Tensor(shape_ind).to('cpu')          
+#         ghn(model, shape_ind = shape_ind)  
+#         reward_per_policy = evaluate_for_single_policy(env, model)
 
-        model_dict.at[model_dict.index[model_dict['architecture'] == str(net_args['fc_layers'])][0], 'reward'] = reward_per_policy        
-        hyper_reward += reward_per_policy
+#         model_dict.at[model_dict.index[model_dict['architecture'] == str(net_args['fc_layers'])][0], 'reward'] = reward_per_policy        
+#         hyper_reward += reward_per_policy
 
-    return hyper_reward/len(list_of_net_arch_eval)
+#     return hyper_reward/len(list_of_net_arch_eval)
 
 def get_plots_lims(env_name):
     if env_name in ["Ant-v3", "Ant-v2"]:
@@ -174,26 +182,26 @@ def plot_model_dict(model_dict, env_name, i, rvp_folder, rvc_folder):
     bin_centers = bin_edges[1:] - bin_width/2
 
     # save image
-    plt.scatter(np.log(model_dict['params']), model_dict['reward'], c=np.log(model_dict['capacity']), s=10, cmap = 'coolwarm')
+    plt.scatter(np.log(model_dict['params']), model_dict['reward'], c=np.log(model_dict['exec_time']), s=10, cmap = 'coolwarm')
     plt.xlabel('log(num params)')
     plt.ylabel('reward')
     plt.xlim(p_low,p_high)
     plt.ylim(ylim_l, ylim_h)
     plt.title(f"{i} Epochs")
-    plt.colorbar().set_label('log(capacity)', rotation=270, labelpad = 10)
+    plt.colorbar().set_label('log(exec_time)', rotation=270, labelpad = 10)
     plt.savefig(rvp_folder + '/' + str(i) + '.png', dpi = 300)
     plt.clf()
 
     model_dict = model_dict.sort_values(by = ['params'], ascending = True)
 
     plt.plot(bin_centers, bin_means)
-    plt.scatter(np.log(model_dict['capacity']), model_dict['reward'], c=np.log(model_dict['params']), s=10, cmap = 'coolwarm')
+    plt.scatter(np.log(model_dict['capacity']), model_dict['reward'], c=np.log(model_dict['exec_time']), s=10, cmap = 'coolwarm')
     plt.xlabel('log(capacity)')
     plt.ylabel('reward')
     plt.xlim(c_low,c_high)
     plt.ylim(ylim_l, ylim_h)
     plt.title(f"{i} Epochs")
-    plt.colorbar().set_label('log(num params)', rotation=270, labelpad = 10)
+    plt.colorbar().set_label('exec_time', rotation=270, labelpad = 10)
     # plt.plot(np.log(model_dict['capacity']), gaussian_filter1d(model_dict['norm_reward'], sigma =80))
     plt.savefig(rvc_folder + '/' + str(i) + '.png', dpi = 300)
     plt.clf()
@@ -219,7 +227,7 @@ def get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, env, ghn, state_norma
         'inp_dim':inp_dim,
         'out_dim':out_dim,
     }    
-    model_dict = pd.DataFrame(columns=['architecture', 'reward', 'params', 'capacity'])
+    model_dict = pd.DataFrame(columns=['architecture', 'reward', 'params', 'capacity', 'exec_time'])
     for arc in tqdm.tqdm(list_of_arcs):
         net_args['fc_layers'] = arc 
         model = MlpNetwork(**net_args)
@@ -231,16 +239,17 @@ def get_model_dict(list_of_arcs, env_obs_dim, env_act_dim, env, ghn, state_norma
         shape_ind.append([out_dim])    
         shape_ind = torch.Tensor(shape_ind).to(device)          
         ghn(model, shape_ind = shape_ind)  
-        reward_per_policy = evaluate_for_single_policy(env, model, state_normalizer, goal_normalizer, device)
+        reward_per_policy, average_forward_pass_time = evaluate_for_single_policy(env, model, state_normalizer, goal_normalizer, device)
         params = sum(p.numel() for p in model.parameters())
         cap = get_capacity(net_args['fc_layers'], inp_dim, out_dim)
 
 
-        model_dict  = pd.concat([model_dict, pd.DataFrame({'architecture':[str(list(arc))],'reward':[reward_per_policy], 'params':[params], 'capacity':[cap]})], ignore_index=True)
+        model_dict  = pd.concat([model_dict, pd.DataFrame({'architecture':[str(list(arc))],'reward':[reward_per_policy], 'params':[params], 'capacity':[cap], 'exec_time':[average_forward_pass_time] })], ignore_index=True)
 
     model_dict['params'] = model_dict['params'].astype(np.float64)
     model_dict['capacity'] = model_dict['capacity'].astype(np.float64)
     model_dict['reward'] = model_dict['reward'].astype(np.float64)
+    model_dict['exec_time'] = model_dict['exec_time'].astype(np.float64)
 
     model_dict = model_dict.sort_values(by = ['params'], ascending= False)
     model_dict = model_dict.sort_values(by = ['capacity'], ascending = False)
@@ -260,7 +269,7 @@ def main(config):
 
     device = torch.device(f"cuda:{config.cuda_device}" if config.cuda else "cpu")
 
-    eval_env_fns = [lambda: gym.make(actual_env_id) for _ in range(5)]
+    eval_env_fns = [lambda: gym.make(actual_env_id) for _ in range(config.num_evals)]
     eval_envs = SubprocVecEnv(eval_env_fns)
     eval_envs.seed(config.seed)
 
@@ -293,6 +302,7 @@ def main(config):
 
     # check if few logs exist
     list_of_existing_model_dicts = [os.path.join(model_dict_folder,file) for file in os.listdir(model_dict_folder)]
+    list_of_existing_model_dicts.sort(key = lambda x: int(x.split("/")[-1].split(".")[0].split("dict")[-1]))
     if len(list_of_existing_model_dicts) > 0:
         print("Existing logs found for:")
         for model_dict_file in list_of_existing_model_dicts:
@@ -321,17 +331,20 @@ def main(config):
 
         new_files = []
         for ckp_file in list_of_ckpts_to_eval:
-            if ckp_file in list_of_ckpts_seen:
+            if (ckp_file in list_of_ckpts_seen) and not config.overwrite:
                 continue
             else:
                 new_files.append(ckp_file)
 
         if len(new_files) > 0:
-            print("New File(s) detected!!")
+            if config.overwrite:
+                print("Overwriting existing files")
+            else:
+                print("New File(s) detected!!")
             # time.sleep(1)
 
         # sort new files
-        new_files.sort(key = lambda x: int(x.split("/")[-1].split(".")[0].split("_")[2]))
+        new_files.sort(key = lambda x: int(x.split("/")[-1].split(".")[0].split("_")[2]), reverse=True)
 
         action_space = eval_envs.action_space
         num_inputs = env_obs_dim
