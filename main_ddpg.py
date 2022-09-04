@@ -17,6 +17,7 @@ import os, json
 from configs.config_helper import get_ddpg_args, override_config
 import dmc2gym
 import time
+import panda_gym
 
 def evaluate(env_, agent_, N):
     total_success_rate = []
