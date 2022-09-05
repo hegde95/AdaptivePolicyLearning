@@ -253,6 +253,8 @@ def main(args):
         agent.actor.scheduler._step_count = epochs_run + 1
         
 
+    success_rate, running_reward, episode_reward = evaluate(eval_env, agent, N)
+    print("Initial success rate: {}".format(success_rate))
     # MAIN LOOP
     # for each epoch, run multiple cycles of rollout collection and training
     # at end of each epoch eval (and) save.
