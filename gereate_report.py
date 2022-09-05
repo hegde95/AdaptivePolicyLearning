@@ -5,7 +5,7 @@ import pandas as pd
 import functools as ft
 import matplotlib.pyplot as plt
 
-
+import numpy as np
 from plot_utils.sac_plotter import plot_model_dict
 
 
@@ -76,6 +76,15 @@ def main(config):
         "hopper":"Hopper-v2",
         "walker":"Walker2d-v2"        
     }
+    inp_out_dict = {
+        "humanoid":(376, 17),
+        "ant":(111, 8),
+        "hc":(17,6),
+        "hopper":(11,3),
+        "walker":(17,6)
+    }    
+    inp_dim = inp_out_dict[config.prefix][0]
+    out_dim = inp_out_dict[config.prefix][1]
     env_name = env_name_dict[config.prefix]
     rvc_folder = os.path.join(path_to_report_folder, "rvc")
     rvp_folder = os.path.join(path_to_report_folder, "rvp")
@@ -102,7 +111,59 @@ def main(config):
     # save this as a csv
     tmp.to_csv(os.path.join(path_to_report_folder, "best_arch.csv"), index=False)
 
+    # save avg df as csv
+    df_avg.to_csv(os.path.join(path_to_report_folder, "avg_arch.csv"), index=False)
 
+    task_wise_param_cutoff = {
+        "humanoid": 4000, #3874,
+        "ant": 4000, #3604,
+        "hc": 2500, #1988,
+        "hopper": 500, #202,
+        "walker": 1000, #688
+    }
+    # just checking
+    df_avg = df_avg[df_avg['params'] <= task_wise_param_cutoff[config.prefix]]
+
+    list_of_layers = [4,8,16,32,64,128,256,512]
+    largest_layer = 0
+    for layer in list_of_layers:
+        if layer * (inp_dim + 2) <= df_avg['capacity'].max():
+            largest_layer = layer
+
+    def check_if_arc_starts_with(layer, arch):
+        arch = [int(layer) for layer in arch.strip("[]").split(", ")]
+        if arch[0] == layer:
+            return True
+        else:
+            return False
+    
+    # get all architectures that start with largest_layer
+    pred_df_avg = df_avg[df_avg['architecture'].apply(lambda x: check_if_arc_starts_with(largest_layer, x))]
+
+    # predict best model
+    pred_df_avg = pred_df_avg[pred_df_avg['params'] == pred_df_avg['params'].max()]
+
+    # actual best model
+    act_df_avg = df_avg[df_avg['reward'] == df_avg['reward'].max()]
+
+    print(f"for {config.prefix}, params cutoff is {task_wise_param_cutoff[config.prefix]}")
+
+    print(f"Predicted best architecture: {pred_df_avg['architecture'].values[0]} with reward: {pred_df_avg['reward'].values[0]} and params: {pred_df_avg['params'].values[0]}")
+    print(f"Actual best architecture: {act_df_avg['architecture'].values[0]} with reward: {act_df_avg['reward'].values[0]} and params: {act_df_avg['params'].values[0]}")
+
+    # sort by reward
+    df_avg = df_avg.sort_values(by=['reward'], ascending=False)
+    # save cutoff df as csv
+    df_avg.to_csv(os.path.join(path_to_report_folder, "cutoff_arch.csv"), index=False)
+
+    # plot reward vs capacity
+    plt.figure()
+    plt.scatter(np.log(df_avg['capacity']), df_avg['reward'], c=np.log(df_avg['params']), s=10, cmap = 'coolwarm')
+    plt.xlabel("ln(Capacity)")
+    plt.ylabel("Reward")
+    plt.title(f"Reward vs Capacity for {env_name}, given a constraint of {task_wise_param_cutoff[config.prefix]} parameters")
+    plt.savefig(os.path.join(path_to_report_folder, "const_reward_vs_capacity.png"))
+    print("\n\n")
     pass
 
 if __name__ == "__main__":

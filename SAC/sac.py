@@ -51,7 +51,11 @@ class SAC_Agent(object):
                 # self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
                 self.policy_optim = self.policy.current_optimizers
             else:
-                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, is_taper = args.taper).to(self.device)
+                if args.arc:
+                    custom_arch = [int(x) for x in args.arc.split(",")]
+                else:
+                    custom_arch = None
+                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, is_taper = args.taper, custom_arch=custom_arch).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
             self.switch_counter = 0

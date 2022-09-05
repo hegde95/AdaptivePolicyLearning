@@ -18,6 +18,11 @@ Suggested override options for config runs:
     --wandb-tag, "set wandb tag, default with config is bm8"
     --base_dir, "set base directory for runs, default with config is runs2"
 
+Baseline run
+    python main.py --hyper False --base_dir runs_size_check --config ant --arc 16,32,32,4 --wandb-tag bsc --seed 111
+
+    python main.py --hyper False --base_dir runs_size_check --config hopper --arc 8,4,4,4 --wandb-tag bsc --seed 111
+
 To resume training from a previous run:
 
     python main.py --cuda True --load_run 2022-08-19_16-24-14_DEBUG_Ant-v2_Gaussian__hyper_123

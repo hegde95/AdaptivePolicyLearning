@@ -74,6 +74,9 @@ def get_sac_args(parser):
                         help='steps to run between architecture samples (default: 50)')
     parser.add_argument('--search', type = str2bool,
                         help = 'search for the best architecture (default: False)')
+    parser.add_argument('--arc', type=str,
+                        help='Use a custom arc for actor. (default: "256,256")')                        
+
 
     # logging args 
     parser.add_argument('--wandb', type = str2bool,

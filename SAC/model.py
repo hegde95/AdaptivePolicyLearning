@@ -95,23 +95,38 @@ class ConditionalQNetwork(nn.Module):
         return x1, x2
 
 class GaussianPolicy(nn.Module):
-    def __init__(self, num_inputs, num_actions, hidden_dim, action_space=None, is_taper = False):
+    def __init__(self, num_inputs, num_actions, hidden_dim, action_space=None, is_taper = False, custom_arch = None):
         super(GaussianPolicy, self).__init__()
         self.is_taper = is_taper
-        
-        if is_taper:
-            self.linear1 = nn.Linear(num_inputs, hidden_dim * 2)
-            self.linear2 = nn.Linear(hidden_dim * 2, hidden_dim)
+        self.custom_arch = custom_arch
 
-            self.mean_linear = nn.Linear(hidden_dim, num_actions)
-            self.log_std_linear = nn.Linear(hidden_dim, num_actions)
-            
+        if custom_arch is None:    
+            if is_taper:
+                self.linear1 = nn.Linear(num_inputs, hidden_dim * 2)
+                self.linear2 = nn.Linear(hidden_dim * 2, hidden_dim)
+
+                self.mean_linear = nn.Linear(hidden_dim, num_actions)
+                self.log_std_linear = nn.Linear(hidden_dim, num_actions)
+                
+            else:
+                self.linear1 = nn.Linear(num_inputs, hidden_dim)
+                self.linear2 = nn.Linear(hidden_dim, hidden_dim)
+
+                self.mean_linear = nn.Linear(hidden_dim, num_actions)
+                self.log_std_linear = nn.Linear(hidden_dim, num_actions)
         else:
-            self.linear1 = nn.Linear(num_inputs, hidden_dim)
-            self.linear2 = nn.Linear(hidden_dim, hidden_dim)
+            fc = [nn.Linear(num_inputs, custom_arch[0])]
+            for i in range(len(custom_arch) - 1):
+                # assert fc_dim > 0, fc_dim
+                fc.append(nn.ReLU(inplace=True))
+                # fc.append(nn.Dropout(p=0.5, inplace=False))
+                fc.append(nn.Linear(in_features=custom_arch[i], out_features=custom_arch[i+1]))
+            # fc.append(nn.ReLU(inplace=True))
+            # fc.append(nn.Linear(in_features=custom_arch[-1], out_features=num_actions))
+            self.fc = nn.Sequential(*fc)
+            self.mean_linear = nn.Linear(custom_arch[-1], num_actions)
+            self.log_std_linear = nn.Linear(custom_arch[-1], num_actions)
 
-            self.mean_linear = nn.Linear(hidden_dim, num_actions)
-            self.log_std_linear = nn.Linear(hidden_dim, num_actions)
 
         self.apply(weights_init_)
 
@@ -126,11 +141,17 @@ class GaussianPolicy(nn.Module):
                 (action_space.high + action_space.low) / 2.)
 
     def forward(self, state):
-        x = F.relu(self.linear1(state))
-        x = F.relu(self.linear2(x))
+        if self.custom_arch is None:
+            x = F.relu(self.linear1(state))
+            x = F.relu(self.linear2(x))
 
-        mean = self.mean_linear(x)
-        log_std = self.log_std_linear(x)
+            mean = self.mean_linear(x)
+            log_std = self.log_std_linear(x)
+        else:
+            x = F.relu(self.fc(state))
+            mean = self.mean_linear(x)
+            log_std = self.log_std_linear(x)
+
         log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
         return mean, log_std
 
