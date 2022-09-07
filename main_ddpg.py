@@ -324,9 +324,9 @@ def main(args):
             epoch_critic_loss += cycle_critic_loss /num_updates
             agent.update_networks()
 
-        if args.hyper:
-            # step the LR scheduler for the hyper network
-            agent.actor.scheduler.step() 
+        # if args.hyper:
+        #     # step the LR scheduler for the hyper network
+        #     agent.actor.scheduler.step() 
 
         success_rate, running_reward, episode_reward = evaluate(eval_env, agent, N)
         total_ac_loss.append(epoch_actor_loss)
