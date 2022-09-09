@@ -28,7 +28,7 @@ from configs.config_helper import str2bool
 def get_config():
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument("--run_name", type=str, help="Run name")
-    parser.add_argument("--hours", type=int, default=24, help="Hours to run the plotter script for")
+    parser.add_argument("--hours", type=int, default=72, help="Hours to run the plotter script for")
     parser.add_argument("--run_dir", type=str, default="runs", help="Path to the base of all runs")
     parser.add_argument("--seed", type=int, default=1, help="Seed, default: 1")
     parser.add_argument("--num_evals", type=int, default=20, help="Number of evaluations to run per architecture, default: 20")
