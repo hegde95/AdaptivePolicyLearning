@@ -36,7 +36,7 @@ def get_config():
     
     parser.add_argument("--path_to_ckpt", type=str, help="Path to the ckpt file")
 
-    parser.add_argument('--eval_every', type=int, default=1,
+    parser.add_argument('--eval_every', type=int, default=4,
                         help='run eval every n epochs')
     parser.add_argument('--rand', type=str2bool, default="False",
                         help='run eval on random architectures')   
