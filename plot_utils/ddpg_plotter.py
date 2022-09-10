@@ -163,8 +163,8 @@ def get_plots_lims(env_name):
         return -30, 1100, 3, 9, 4, 14
     elif env_name in ["Humanoid-v2", "Humanoid-v3"]:
         return -30, 10000, 5, 13, 5, 15
-    elif env_name in ["FetchPickAndPlace-v1"]:
-        return -0.1, 1.1, 4, 10, 5, 14
+    elif env_name in ["FetchPickAndPlace-v1", "FetchPush-v1", "FetchReach-v1", "FetchSlide-v1"]:
+        return -0.1, 1.1, 4, 11, 4, 14
     else:
         raise ValueError('Given Env has no plot limits.')
 
