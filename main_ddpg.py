@@ -249,8 +249,9 @@ def main(args):
             agent.load_checkpoint(latest_ckpt_backup)
             print("Could not load agent from {}. Loaded from {}.".format(latest_ckpt, latest_ckpt_backup))
 
-        agent.actor.scheduler.last_epoch = epochs_run
-        agent.actor.scheduler._step_count = epochs_run + 1
+        if args.hyper:
+            agent.actor.scheduler.last_epoch = epochs_run
+            agent.actor.scheduler._step_count = epochs_run + 1
         
 
     success_rate, running_reward, episode_reward = evaluate(eval_env, agent, N)

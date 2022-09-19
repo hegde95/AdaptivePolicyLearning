@@ -20,6 +20,7 @@ class Agent:
                  steps_per_arc = 4,
                  gamma=0.98,
                  device_name = "cuda",
+                 arc = None
                  ):
         self.device = device(device_name)
         self.n_states = n_states

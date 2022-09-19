@@ -212,6 +212,8 @@ def get_ddpg_args(parser):
                         help='run with a hyper network (default: False)') 
     parser.add_argument('--steps_per_arc', type=int, metavar='N',
                         help='steps to run between architecture samples (default: 4)')
+    parser.add_argument('--arc', type=str,
+                        help='Use a custom arc for actor. (default: "256,256")')                        
 
 
 
@@ -260,6 +262,7 @@ def set_ddpg_arg_defaults(config):
     config.meta_batch_size = config.meta_batch_size if config.meta_batch_size else 8
     config.hyper = config.hyper if config.hyper else False
     config.steps_per_arc = config.steps_per_arc if config.steps_per_arc else 4
+    
 
     config.wandb = config.wandb if config.wandb else False
     config.wandb_tag = config.wandb_tag if config.wandb_tag else ""
