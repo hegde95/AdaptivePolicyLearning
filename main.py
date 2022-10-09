@@ -15,6 +15,12 @@ import random
 import os, json
 from configs.config_helper import get_sac_args, override_config
 import dmc2gym
+from swarm_rl.env_wrappers.quad_utils import make_quadrotor_env
+from sample_factory.envs.env_registry import global_env_registry
+from swarm_rl.env_wrappers.quadrotor_params import add_quadrotors_env_args, quadrotors_override_defaults
+from swarm_rl.runs.quad_single_goal import SMALL_MODEL_CLI
+from sample_factory.algorithms.utils.arguments import parse_args, arg_parser
+
 
 def evaluate(N, eval_env, agent):
     avg_reward = np.zeros(N)
@@ -154,7 +160,23 @@ def main(args):
     if args.dm_control:
         env_fns = [lambda: dmc2gym.make(domain_name=args.domain, task_name=args.task, seed=args.seed) for _ in range(N)]
     else:
-        env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
+        if "Drone" in args.env_name:
+            global_env_registry().register_env(
+                env_name_prefix='quadrotor_',
+                make_env_func=make_quadrotor_env,
+                add_extra_params_func=add_quadrotors_env_args,
+                override_default_params_func=quadrotors_override_defaults,
+            )      
+
+            env_registry = global_env_registry()
+            env_registry_entry = env_registry.resolve_env_name('quadrotor_multi')
+            cfg = parse_args(SMALL_MODEL_CLI.split(' ')[3:], evaluation=False)
+            env_fns = [lambda: env_registry_entry.make_env_func('quadrotor_multi', cfg=cfg, env_config=None) for _ in range(N)]
+
+            
+            
+        else:
+            env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
     env = SubprocVecEnv(env_fns)
     env.seed(args.seed)
     env.action_space.seed(args.seed)
@@ -163,7 +185,12 @@ def main(args):
         if args.dm_control:
             eval_env_fns = [lambda: dmc2gym.make(domain_name=args.domain, task_name=args.task, seed=args.seed + 1) for _ in range(N)]
         else:
-            eval_env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
+            if "Drone" in args.env_name:
+                env_registry_entry = env_registry.resolve_env_name('quadrotor_multi')
+                cfg = parse_args(SMALL_MODEL_CLI.split(' ')[3:], evaluation=False)
+                eval_env_fns = [lambda: env_registry_entry.make_env_func('quadrotor_multi', cfg=cfg, env_config=None) for _ in range(N)]
+            else:
+                eval_env_fns = [lambda: gym.make(args.env_name) for _ in range(N)]
         eval_env = SubprocVecEnv(eval_env_fns)
         eval_env.seed(args.seed + 1)
         eval_env.action_space.seed(args.seed + 1)
@@ -212,6 +239,8 @@ def main(args):
         critic_1_losss, critic_2_losss, policy_losss, ent_losss, alpha_losss, updatess = [], [], [], [], [], []
         done = np.array([False for _ in range(N)])
         state = env.reset()
+        # dummy_env = env_registry_entry.make_env_func('quadrotor_multi', cfg=cfg, env_config=None)
+        # dummy_env.reset()
 
         # resample random policy if using hypernetwork or ensemble network
         if args.hyper or args.parallel:
@@ -237,6 +266,7 @@ def main(args):
                     updates += 1
 
             next_state, reward, done, _ = env.step(action) # Step
+            # dummy_env.step(action[0])
             episode_steps += N
             total_numsteps += N
             # episode_reward += reward
@@ -244,6 +274,7 @@ def main(args):
 
             # Ignore the "done" signal if it comes from hitting the time horizon.
             # (https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py)
+            # dummy_env._max_episode_steps
             mask = np.array([1 if episode_steps//N == env.get_attr('_max_episode_steps')[k] else float(not done[k]) for k in range(N)])
 
             memory.push_many(state, action, reward, next_state, mask) # Append transition to memory
