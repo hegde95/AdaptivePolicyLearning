@@ -50,7 +50,7 @@ class QuadsRewardShapingWrapper(gym.Wrapper, RewardShapingInterface, TrainingInf
         obs = self.env.reset()
         self.cumulative_rewards = [dict() for _ in range(self.num_agents)]
         self.episode_actions = []
-        return obs
+        return obs[0]
 
     def step(self, action):
         action = [action]
