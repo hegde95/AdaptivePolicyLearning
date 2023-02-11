@@ -4,7 +4,7 @@
 
 To run from config file:
 
-    python main.py --cuda True --seed 123 --base_dir runs --config ant
+    python main_sac.py --cuda True --seed 123 --base_dir runs --config ant
 
 Suggested override options for config runs:
 
@@ -19,13 +19,13 @@ Suggested override options for config runs:
     --base_dir, "set base directory for runs, default with config is runs2"
 
 Baseline run
-    python main.py --hyper False --base_dir runs_size_check --config ant --arc 16,32,32,4 --wandb-tag bsc --seed 111
+    python main_sac.py --hyper False --base_dir runs_size_check --config ant --arc 16,32,32,4 --wandb-tag bsc --seed 111
 
-    python main.py --hyper False --base_dir runs_size_check --config hopper --arc 8,4,4,4 --wandb-tag bsc --seed 111
+    python main_sac.py --hyper False --base_dir runs_size_check --config hopper --arc 8,4,4,4 --wandb-tag bsc --seed 111
 
 To resume training from a previous run:
 
-    python main.py --cuda True --load_run 2022-08-19_16-24-14_DEBUG_Ant-v2_Gaussian__hyper_123
+    python main_sac.py --cuda True --load_run 2022-08-19_16-24-14_DEBUG_Ant-v2_Gaussian__hyper_123
     
 To train on a manipulation task, we use ddpg with hindsight experience replay (HER) and a goal-conditioned policy. To run HER from config file:
 
