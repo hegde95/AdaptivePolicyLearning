@@ -2,13 +2,13 @@ import os
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
-from utils import soft_update, hard_update
-from model import GaussianPolicy, QNetwork, DeterministicPolicy, ConditionalQNetwork
+from SAC.utils import soft_update, hard_update
+from SAC.model import GaussianPolicy, QNetwork, DeterministicPolicy, EnsembleGaussianPolicy, ConditionalQNetwork
 
 from hyper.core import hyperActor
 import numpy as np
 
-class SAC(object):
+class SAC_Agent(object):
     def __init__(self, num_inputs, action_space, args):
 
         self.gamma = args.gamma
@@ -17,12 +17,13 @@ class SAC(object):
         self.hyper = args.hyper
         self.condition_q = args.condition_q
         self.steps_per_arc = args.steps_per_arc
+        self.parallel = args.parallel
 
         self.policy_type = args.policy
         self.target_update_interval = args.target_update_interval
         self.automatic_entropy_tuning = args.automatic_entropy_tuning
 
-        self.device = torch.device("cuda" if args.cuda else "cpu")
+        self.device = torch.device(f"cuda:{args.cuda_device}" if args.cuda else "cpu")
 
         if self.hyper and self.condition_q:
             self.critic = ConditionalQNetwork(num_inputs, action_space.shape[0], 4, args.hidden_size).to(device=self.device)
@@ -43,19 +44,20 @@ class SAC(object):
 
             # self.larger_policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             if self.hyper:
-                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.arange(4,512 + 1), meta_batch_size = args.meta_batch_size).to(self.device)
+                self.policy =  hyperActor(action_space.shape[0], num_inputs, action_space.high[0], np.array([4,8,16,32,64,128,256,512]), meta_batch_size = args.meta_batch_size, device=self.device, search=args.search).to(self.device)
                 self.policy_optim = self.policy.optimizer
+            elif self.parallel:
+                self.policy =  EnsembleGaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, meta_size=args.meta_batch_size).to(self.device)
+                # self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
+                self.policy_optim = self.policy.current_optimizers
             else:
-                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
+                if args.arc:
+                    custom_arch = [int(x) for x in args.arc.split(",")]
+                else:
+                    custom_arch = None
+                self.policy = GaussianPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space, is_taper = args.taper, custom_arch=custom_arch).to(self.device)
                 self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
-            # self.policy_optim = Adam([
-            #     {
-            #         'params': self.larger_policy.parameters(),
-            #         'lr': args.lr
-            #     },
-            # ])
-            # self.policy = self.larger_policy
             self.switch_counter = 0
 
         else:
@@ -64,9 +66,11 @@ class SAC(object):
             self.policy = DeterministicPolicy(num_inputs, action_space.shape[0], args.hidden_size, action_space).to(self.device)
             self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
-    def switch_policy(self):
-        self.policy.change_graph()
+    def switch_policy(self, state = None):
+        self.policy.change_graph(state)
         self.switch_counter = 0
+        if self.parallel:
+            self.policy_optim = self.policy.current_optimizers
 
     def select_action(self, state, evaluate=False):
         if len(state.shape) == 1:
@@ -116,13 +120,19 @@ class SAC(object):
         qf_loss.backward()
         self.critic_optim.step()
 
-        self.policy_optim.zero_grad()
+        if self.parallel:
+            for optim in self.policy_optim:
+                optim.zero_grad()
+        else:
+            self.policy_optim.zero_grad()
 
-        if self.hyper:
+        if self.hyper or self.parallel:
             self.switch_counter += 1
             if self.switch_counter % self.steps_per_arc == 0:
                 self.policy.change_graph(repeat_sample = False)
                 self.switch_counter = 0
+                if self.parallel:
+                    self.policy_optim = self.policy.current_optimizers
             else:
                 self.policy.change_graph(repeat_sample = True)
 
@@ -137,7 +147,11 @@ class SAC(object):
         policy_loss = ((self.alpha * log_pi) - min_qf_pi).mean() # Jπ = 𝔼st∼D,εt∼N[α * logπ(f(εt;st)|st) − Q(st,f(εt;st))]
 
         policy_loss.backward(retain_graph=True)
-        self.policy_optim.step()
+        if self.parallel:
+            for optim in self.policy_optim:
+                optim.step()
+        else:
+            self.policy_optim.step()
 
         if self.automatic_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
@@ -159,12 +173,14 @@ class SAC(object):
         return qf1_loss.item(), qf2_loss.item(), policy_loss.item(), alpha_loss.item(), alpha_tlogs.item()
 
     # Save model parameters
-    def save_checkpoint(self, env_name, suffix="", ckpt_path=None):
-        if not os.path.exists('checkpoints/'):
-            os.makedirs('checkpoints/')
+    def save_checkpoint(self, run_name, suffix="", ckpt_path=None, base_dir = "runs", sub_folder = "checkpoints", verbose=True):
+        if not os.path.exists(f"{base_dir}/{run_name}/{sub_folder}/"):
+            os.makedirs(f"{base_dir}/{run_name}/{sub_folder}/")
         if ckpt_path is None:
-            ckpt_path = "checkpoints/sac_checkpoint_{}_{}".format(env_name, suffix)
-        print('Saving models to {}'.format(ckpt_path))
+            ckpt_path = f"{base_dir}/{run_name}/{sub_folder}/sac_checkpoint_{suffix}"
+            
+        if verbose:
+            print('Saving models to {}'.format(ckpt_path))
         torch.save({'policy_state_dict': self.policy.state_dict(),
                     'critic_state_dict': self.critic.state_dict(),
                     'critic_target_state_dict': self.critic_target.state_dict(),
@@ -172,10 +188,33 @@ class SAC(object):
                     'policy_optimizer_state_dict': self.policy_optim.state_dict()}, ckpt_path)
 
     # Load model parameters
-    def load_checkpoint(self, ckpt_path, evaluate=False):
+    def load_checkpoint(self, ckpt_path, evaluate=False, add_search_params = False, device = "cpu"):
         print('Loading models from {}'.format(ckpt_path))
         if ckpt_path is not None:
-            checkpoint = torch.load(ckpt_path)
+            checkpoint = torch.load(ckpt_path, map_location=device)
+
+            if add_search_params:
+                # Add search parameters to the checkpoint
+ 
+                # checkpoint['policy_state_dict']['conditional_layer1_distribution.0.weight'] = self.policy.conditional_layer1_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer1_distribution.0.bias'] = self.policy.conditional_layer1_distribution[0].bias.data
+
+
+                # checkpoint['policy_state_dict']['conditional_layer2_distribution.0.weight'] = self.policy.conditional_layer2_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer2_distribution.0.bias'] = self.policy.conditional_layer2_distribution[0].bias.data
+
+                # checkpoint['policy_state_dict']['conditional_layer3_distribution.0.weight'] = self.policy.conditional_layer3_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer3_distribution.0.bias'] = self.policy.conditional_layer3_distribution[0].bias.data
+
+                # checkpoint['policy_state_dict']['conditional_layer4_distribution.0.weight'] = self.policy.conditional_layer4_distribution[0].weight.data
+                # checkpoint['policy_state_dict']['conditional_layer4_distribution.0.bias'] = self.policy.conditional_layer4_distribution[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_arc_dist.0.weight'] = self.policy.conditional_arc_dist[0].weight.data
+                checkpoint['policy_state_dict']['conditional_arc_dist.0.bias'] = self.policy.conditional_arc_dist[0].bias.data
+
+                checkpoint['policy_state_dict']['conditional_arc_dist.2.weight'] = self.policy.conditional_arc_dist[2].weight.data
+                checkpoint['policy_state_dict']['conditional_arc_dist.2.bias'] = self.policy.conditional_arc_dist[2].bias.data
+
             self.policy.load_state_dict(checkpoint['policy_state_dict'])
             self.critic.load_state_dict(checkpoint['critic_state_dict'])
             self.critic_target.load_state_dict(checkpoint['critic_target_state_dict'])

@@ -132,3 +132,6 @@ dmypy.json
 .vscode*
 runs*
 wandb*
+figs*
+debug*
+report*
