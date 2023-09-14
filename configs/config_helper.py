@@ -60,6 +60,8 @@ def get_sac_args(parser):
                         help='size of replay buffer (default: 1000000)')
 
     # hyper args
+    parser.add_argument('--num_envs', type=int, metavar='N',
+                    help='(default: 16)')    
     parser.add_argument('--meta_batch_size', type=int, metavar='N',
                     help='hidden size (default: 8)')    
     parser.add_argument('--updates_per_step', type=int, metavar='N',
@@ -124,6 +126,7 @@ def set_sac_arg_defaults(config):
     config.start_steps = config.start_steps if config.start_steps else 10000
     config.target_update_interval = config.target_update_interval if config.target_update_interval else 1
     config.replay_size = config.replay_size if config.replay_size else 1000000
+    config.num_envs = config.num_envs if config.num_envs else 16
     config.meta_batch_size = config.meta_batch_size if config.meta_batch_size else 8
     config.updates_per_step = config.updates_per_step if config.updates_per_step else 8
     config.hyper = config.hyper if config.hyper else False
@@ -206,8 +209,10 @@ def get_ddpg_args(parser):
                         help='HER hyper param (default: 4)')
 
     # hyper args
+    parser.add_argument('--num_envs', type=int, metavar='N',
+                    help='(default: 16)')    
     parser.add_argument('--meta_batch_size', type=int, metavar='N',
-                    help='hidden size (default: 8)')    
+                    help='hidden size (default: 16)')    
     parser.add_argument('--hyper', type = str2bool,
                         help='run with a hyper network (default: False)') 
     parser.add_argument('--steps_per_arc', type=int, metavar='N',

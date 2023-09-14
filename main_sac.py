@@ -150,7 +150,7 @@ def main(args):
     # INIT LOGIC
 
     # Environment
-    N = args.meta_batch_size
+    N = args.num_envs
     if args.dm_control:
         env_fns = [lambda: dmc2gym.make(domain_name=args.domain, task_name=args.task, seed=args.seed) for _ in range(N)]
     else:
