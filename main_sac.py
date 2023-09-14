@@ -15,6 +15,7 @@ import random
 import os, json
 from configs.config_helper import get_sac_args, override_config
 import dmc2gym
+import time
 
 def evaluate(N, eval_env, agent):
     avg_reward = np.zeros(N)
@@ -49,6 +50,8 @@ def validate_run(args):
 
 
 def main(args):
+
+    start_time = time.time()
     # if load run is specified, load the run
     if args.load_run:
         # check if the run exists
@@ -207,6 +210,9 @@ def main(args):
 
     # MAIN LOOP
     for i_episode in itertools.count(1 + episodes_st):
+        # if time elapsed is greater than 5 hours, break
+        if time.time() - start_time > 5*60*60:
+            break
         episode_reward = np.zeros(N)
         episode_steps = 0
         critic_1_losss, critic_2_losss, policy_losss, ent_losss, alpha_losss, updatess = [], [], [], [], [], []
